@@ -1,0 +1,30 @@
+# 构建产物
+dist/
+
+# 依赖
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+.trae/
+.DS_Store
+
+# Claude Code 本地/敏感配置
+.claude/settings.local.json
+.mcp.json
+
+# 日志
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+
+# 编辑器备份
+*.swp
+*~
+*.orig
+
+# 系统文件
+Thumbs.db
