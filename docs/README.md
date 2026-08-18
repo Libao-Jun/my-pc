@@ -36,7 +36,7 @@ my-pc 是一款 **Electron 桌面应用**，面向个人电脑的「运维 + 效
 | 运行时 | Node.js 22+（Electron 内置） | 主进程系统能力 |
 | 数据库 | node:sqlite（Node 内置） | 零原生编译、同步 API、免依赖 |
 | 系统信息 | systeminformation | CPU / 磁盘 / 网络 / 进程一站式 |
-| 图表渲染 | mermaid | 文本转图、跨端一致 |
+| 图表渲染 | 自研受限渲染器（`shared/mermaid.ts`，零依赖） | 文本转图、可控子集 |
 | AI 后端（可选） | 可配置（OpenAI 兼容 / Anthropic） | 简历优化与图表生成的核心能力 |
 | 进程管理（主进程） | 内置 `child_process` | 端口反查等系统命令兜底 |
 

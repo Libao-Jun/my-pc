@@ -16,7 +16,7 @@ const TYPE_OPTIONS: Array<{ value: DiagramType | ''; label: string }> = [
 const TYPE_NAMES: Record<DiagramType, string> = {
   mindmap: '思维导图',
   flowchart: '流程图',
-  approval: '审批流程图'
+  approval: '审批流'
 }
 
 export function DiagramGeneratorPage(): JSX.Element {

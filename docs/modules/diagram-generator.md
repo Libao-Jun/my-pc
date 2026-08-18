@@ -23,7 +23,7 @@
 - 通读资料，抽取核心实体与关系。
 - **AI 优先**：走 `ai/` 适配层，要求输出合法 Mermaid 源码。
 - **本地兜底**：用 Mermaid 语法模板（`skills/diagram-generator/references/mermaid-snippets.md`）按结构拼接。
-- 输出 `{ type, mermaid }`。
+- 输出 `{ type, mermaid, source: 'ai' | 'local' }`。
 
 ### 2.3 渲染
 
@@ -33,13 +33,13 @@
 
 见 `API_SPEC.md` §7：`diagram:generate`。
 
-## 4. 数据
+## 4. 数据持久化（YAGNI：不做 diagrams 历史表）
 
-- `diagrams` 表（可选历史）：存 source / type / mermaid / created_at，支持「最近生成」回看。
+阶段 6 明确不做图表历史（YAGNI），无 `diagrams` 表、无持久化通道；需要时按 DATABASE.md §2.6 补 v5 迁移。
 
 ## 5. UI
 
-页面 `pages/DiagramGenerator/`：`DiagramGeneratorPage` + `SourceInput` / `MermaidPreview` / `MermaidCodeView`。
+页面 `pages/DiagramGenerator/`：`DiagramGeneratorPage` + `textarea + 类型下拉（页面内联）` / `MermaidPreview` / `MermaidCodeView`。
 
 ## 6. 关键实现要点
 

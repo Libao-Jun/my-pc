@@ -1,4 +1,4 @@
-import type { DiagramRequest, DiagramResult } from '@shared/types'
+import type { DiagramResult } from '@shared/types'
 import type { DiagramType } from '@shared/types'
 import { parseMermaid } from '@shared/mermaid'
 import { complete } from '../ai/adapter'
@@ -25,7 +25,7 @@ flowchart:
 // 资料 → 类型判定：层级/分类 → mindmap；顺序+判断 → flowchart；多角色签核流转 → approval
 export function classifyType(source: string): DiagramType {
   const lower = source.toLowerCase()
-  if (/提交.*审批|审批.*提交|会签|或签|驳回|复核|经理.*审批|hr/.test(lower)) return 'approval'
+  if (/提交.*审批|审批.*提交|会签|或签|驳回|复核|经理.*审批|\bhr\b/.test(lower)) return 'approval'
   if (/步骤|流程|如果|是否|判断|通过|失败|然后|先.*再|分支|条件/.test(lower)) return 'flowchart'
   return 'mindmap'
 }
@@ -61,7 +61,7 @@ export function localGenerate(type: DiagramType, source: string): string {
     for (const line of lines.slice(1)) out.push(`    ${sanitize(line.replace(/^[\d.、\-*>\s]+/, '').trim())}`)
     return out.join('\n')
   }
-  const sep = type === 'approval' ? /[\n；;。]+/ : /[\n；;]+/
+  const sep = type === 'approval' ? /[\n；;，,。]+/ : /[\n；;，,]+/
   const steps = source.split(sep).map((s) => s.trim()).filter(Boolean)
   if (!steps.length) return type === 'approval' ? 'flowchart LR\n  S[提交]' : 'flowchart TD\n  A[内容]'
   const head = type === 'approval' ? 'flowchart LR' : 'flowchart TD'

@@ -50,7 +50,7 @@ function parseMindmap(lines: string[]): ParsedMermaid {
     let text = trimmed
     let circle = false
     if (root === null) {
-      const m = trimmed.match(/^\(\((.+)\)\)$/)
+      const m = trimmed.match(/^(?:[A-Za-z0-9_]+)?\s*\(\(([^()]*)\)\)$/)
       if (m) {
         text = m[1]
         circle = true

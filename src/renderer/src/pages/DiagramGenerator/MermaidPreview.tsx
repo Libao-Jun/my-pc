@@ -57,19 +57,19 @@ function edgeSvg(e: DiagramEdge, pos: Map<string, Pos>, dir: 'TD' | 'LR'): strin
   let lx: number
   let ly: number
   if (dir === 'TD') {
-    x1 = a.x + a.w
-    y1 = a.y + a.h / 2
-    x2 = b.x
-    y2 = b.y + b.h / 2
-    lx = (x1 + x2) / 2
-    ly = y1 - 6
-  } else {
     x1 = a.x + a.w / 2
     y1 = a.y + a.h
     x2 = b.x + b.w / 2
     y2 = b.y
     lx = x1 + 6
     ly = (y1 + y2) / 2
+  } else {
+    x1 = a.x + a.w
+    y1 = a.y + a.h / 2
+    x2 = b.x
+    y2 = b.y + b.h / 2
+    lx = (x1 + x2) / 2
+    ly = y1 - 6
   }
   const label = e.label
     ? `<text x="${lx}" y="${ly}" text-anchor="middle" font-size="12" fill="#64748b">${escapeXml(e.label)}</text>`
@@ -107,8 +107,8 @@ function layoutFlowchart(
   byLayer.forEach((ids, l) => {
     ids.forEach((id, i) => {
       const s = size.get(id) ?? { w: 80, h: 40 }
-      const x = dir === 'TD' ? l * COLUMN_W : i * (COLUMN_W + 40)
-      const y = dir === 'TD' ? i * ROW_H : l * ROW_H
+      const x = dir === 'TD' ? i * (COLUMN_W + 40) : l * COLUMN_W
+      const y = dir === 'TD' ? l * ROW_H : i * ROW_H
       pos.set(id, { x, y, w: s.w, h: s.h })
       maxX = Math.max(maxX, x + s.w)
       maxY = Math.max(maxY, y + s.h)
