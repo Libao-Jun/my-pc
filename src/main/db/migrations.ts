@@ -58,6 +58,17 @@ const migrations: Migration[] = [
         );
       `)
     }
+  },
+  {
+    version: 4,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS resumes (
+          key  TEXT PRIMARY KEY,
+          data TEXT NOT NULL
+        );
+      `)
+    }
   }
 ]
 
