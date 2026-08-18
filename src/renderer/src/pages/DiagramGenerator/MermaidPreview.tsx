@@ -43,7 +43,7 @@ function renderNode(node: DiagramNode, p: Pos): string {
   } else {
     shape = `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="6" fill="#ffffff" stroke="#94a3b8"/>`
   }
-  return `${shape}<text font-size="${FONT}" fill="#334155">${nodeText(node.text, cx, cy)}</text>`
+  return `${shape}<text font-size="${FONT}" text-anchor="middle" fill="#334155">${nodeText(node.text, cx, cy)}</text>`
 }
 
 function edgeSvg(e: DiagramEdge, pos: Map<string, Pos>, dir: 'TD' | 'LR'): string {
@@ -147,7 +147,7 @@ function layoutMindmap(root: MindmapTree): { parts: string[]; width: number; hei
     const shape = p.circle
       ? `<ellipse cx="${cx}" cy="${cy}" rx="${p.w / 2}" ry="${p.h / 2}" fill="#f0f9ff" stroke="#0284c7"/>`
       : `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="6" fill="#ffffff" stroke="#94a3b8"/>`
-    parts.push(`${shape}<text font-size="${FONT}" fill="#334155">${nodeText(p.text, cx, cy)}</text>`)
+    parts.push(`${shape}<text font-size="${FONT}" text-anchor="middle" fill="#334155">${nodeText(p.text, cx, cy)}</text>`)
   }
   for (const link of parentLinks) {
     const a = positions[link.from]
