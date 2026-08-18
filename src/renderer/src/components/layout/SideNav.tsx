@@ -1,6 +1,6 @@
 import styles from './SideNav.module.css'
 
-export type PageId = 'system' | 'files' | 'adblock'
+export type PageId = 'system' | 'files' | 'adblock' | 'settings'
 
 interface SideNavProps {
   active: PageId
@@ -10,7 +10,8 @@ interface SideNavProps {
 const NAV_ITEMS: { id: PageId; label: string }[] = [
   { id: 'system', label: '系统信息' },
   { id: 'files', label: '大文件' },
-  { id: 'adblock', label: '广告屏蔽' }
+  { id: 'adblock', label: '广告屏蔽' },
+  { id: 'settings', label: '设置' }
 ]
 
 export function SideNav({ active, onNavigate }: SideNavProps): JSX.Element {

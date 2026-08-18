@@ -5,6 +5,7 @@ import { ToastHost } from './components/Toast'
 import { AdBlockerPage } from './pages/AdBlocker/AdBlockerPage'
 import { FileManagerPage } from './pages/FileManager/FileManagerPage'
 import { SystemOverviewPage } from './pages/SystemMonitor/SystemOverviewPage'
+import { SettingsPage } from './pages/Settings/SettingsPage'
 
 export function App(): JSX.Element {
   const [page, setPage] = useState<PageId>('system')
@@ -16,8 +17,10 @@ export function App(): JSX.Element {
           <SystemOverviewPage />
         ) : page === 'files' ? (
           <FileManagerPage />
-        ) : (
+        ) : page === 'adblock' ? (
           <AdBlockerPage />
+        ) : (
+          <SettingsPage />
         )}
       </AppLayout>
       <ToastHost />
