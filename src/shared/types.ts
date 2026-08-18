@@ -7,6 +7,8 @@ export type ErrorCode =
   | 'INTERNAL'
   | 'AI_UNAVAILABLE'
   | 'AI_TIMEOUT'
+  | 'AI_NOT_CONFIGURED'
+  | 'AI_API_ERROR'
   | 'CANCELLED'
 
 export interface AppErrorShape {
@@ -17,6 +19,18 @@ export interface AppErrorShape {
 export type IpcResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: AppErrorShape }
+
+// AI 输出结构 schema：complete() 只据此构造 system prompt 格式指令，不代做 JSON 解析
+export interface JsonSchemaProperty {
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object'
+  description: string
+}
+
+export interface JsonSchema {
+  name: string // 输出对象名，如 'resumeOptimization'
+  description: string // 输出说明
+  properties: Record<string, JsonSchemaProperty>
+}
 
 export type AiBackend = 'openai-compatible' | 'anthropic' | 'none'
 
