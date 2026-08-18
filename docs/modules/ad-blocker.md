@@ -70,7 +70,7 @@ hosts 中以固定标记包围的**托管段**，应用 / 恢复**只读写自�
 - `ApplyResult { written: number; backupId: string; needsFlushDns: boolean }`
 - `AdblockStatus { applied: boolean; ruleCount: number; enabledCount: number; lastAppliedAt: number | null }`
 - `Backup { id: string; createdAt: number; ruleCount: number }`
-- 错误码：`VALIDATION_ERROR`（域名非法）、`PERMISSION_DENIED`（无管理员权限写 hosts）、`INTERNAL`（hosts 读失败等兜底）。
+- 错误码：`VALIDATION_ERROR`（域名非法）、`PERMISSION_DENIED`（无管理员权限写 hosts）、`NOT_FOUND`（`restore` 无可用备份 / 备份 id 不存在）、`INTERNAL`（hosts 读失败等兜底）。
 
 ## 4. 数据
 
@@ -97,7 +97,7 @@ hosts 中以固定标记包围的**托管段**，应用 / 恢复**只读写自�
 ## 6. 关键实现要点
 
 - **托管段常量**：开始 / 结束标记为固定字符串常量，识别时精确匹配（不模糊含前缀行）。
-- **块读写**：读 hosts 全文 → 用标记切出块区域 → 组新内容 → 原子写回（先写临时文件再 rename，或直接写 + 校验）；只写块，其余行逐行透传。
+- **块读写**：读 hosts 全文 → 用标记切出块区域 → 组新内容 → **原子写回**：先把新内容写入同目录临时文件（如 `hosts.my-pc.tmp`），再 `rename` 覆盖原 hosts（Windows `rename` 会替换已存在目标），避免写入中途崩溃留下截断的 hosts 破坏整机解析；其余行逐行透传。
 - **提权重启**：`app.isPackaged` 决定 `process.execPath` 是否需附带应用路径参数。
 - **备份清理**：`DELETE FROM adblock_backups WHERE id NOT IN (SELECT id ... ORDER BY created_at DESC LIMIT 10)`。
 - **渲染层零 Node 权限**：一切 hosts 读写 / 提权 / flushdns 都在主进程，渲染层只经 IPC。
