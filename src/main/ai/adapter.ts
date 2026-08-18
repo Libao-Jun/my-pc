@@ -145,7 +145,9 @@ async function callAnthropic(
     throw new AppError('AI_UNAVAILABLE', 'AI 服务响应格式异常')
   }
   if (!data || typeof data !== 'object') throw new AppError('AI_UNAVAILABLE', 'AI 服务响应格式异常')
-  const text = ((data as { content?: Array<{ type?: string; text?: string }> }).content ?? [])
+  const rawContent = (data as { content?: unknown }).content
+  const blocks = Array.isArray(rawContent) ? (rawContent as Array<{ type?: string; text?: string }>) : []
+  const text = blocks
     .filter((b) => b.type === 'text')
     .map((b) => b.text ?? '')
     .join('')

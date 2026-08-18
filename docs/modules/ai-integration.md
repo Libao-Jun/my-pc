@@ -47,12 +47,12 @@
 
 页面 `pages/Settings/`：
 - `SettingsPage`：页面容器。
-- `AiSettings`：后端下拉 / baseUrl / apiKey / model + 「保存」+「测试连接」（成功显示 `连接成功 · Nms`，失败显示错误码文案）。
+- `AiSettings`：后端下拉 / baseUrl / apiKey / model + 「保存」+「测试连接」（成功显示 `连接成功 · Nms`，失败显示错误码文案）。「测试连接」先保存当前表单再对后端探测（成功显示 连接成功 · Nms）。
 
 ## 6. 关键实现要点
 
 - 超时用 `AbortController` + `setTimeout`，到点 abort，捕获后转 `AI_TIMEOUT`。
-- `baseUrl` 用户填完整基础地址（含版本路径），adapter 拼资源路径并去尾部斜杠。
+- `baseUrl` 用户填完整基础地址：openai-compatible 含版本路径（如 `https://api.openai.com/v1`）；Anthropic 填根地址（`https://api.anthropic.com`）。adapter 拼资源路径（openai 追加 `/chat/completions`，anthropic 追加 `/v1/messages`）并去尾部斜杠。
 - 模型字段留空时兜底默认值：openai-compatible → `gpt-4o-mini`、anthropic → `claude-3-5-haiku`（前端同组默认值做预填）。
 - 渲染层展示错误：沿用 store 模式直接显示 `error.message`，不新建错误码映射表。
 

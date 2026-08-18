@@ -40,6 +40,7 @@ export function AiSettings(): JSX.Element {
 
   // 切换后端：仅当 model 为空时预填新后端默认值（已有值不覆盖）
   const onBackendChange = (b: AiBackend): void => {
+    setTestResult(null)
     setBackend(b)
     setModel((m) => (m !== '' ? m : b === 'none' ? '' : DEFAULT_MODELS[b]))
   }
@@ -117,7 +118,10 @@ export function AiSettings(): JSX.Element {
             API Base URL
             <input
               value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
+              onChange={(e) => {
+                setBaseUrl(e.target.value)
+                setTestResult(null)
+              }}
               placeholder={BASE_URL_PLACEHOLDERS[backend]}
               spellCheck={false}
             />
@@ -127,7 +131,10 @@ export function AiSettings(): JSX.Element {
             <input
               type="password"
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              onChange={(e) => {
+                setApiKey(e.target.value)
+                setTestResult(null)
+              }}
               placeholder="已配置，留空保持不变"
             />
           </label>
@@ -135,7 +142,10 @@ export function AiSettings(): JSX.Element {
             模型
             <input
               value={model}
-              onChange={(e) => setModel(e.target.value)}
+              onChange={(e) => {
+                setModel(e.target.value)
+                setTestResult(null)
+              }}
               placeholder={DEFAULT_MODELS[backend]}
               spellCheck={false}
             />
@@ -151,6 +161,7 @@ export function AiSettings(): JSX.Element {
           {testing ? '测试中…' : '测试连接'}
         </button>
       </div>
+      <p className={styles.hint}>「测试连接」会先保存当前配置，再对已配置后端发起探测。</p>
 
       {testResult && (
         <div className={`${styles.result} ${testOk ? styles.ok : styles.bad}`}>{testResult}</div>

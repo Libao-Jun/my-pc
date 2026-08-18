@@ -36,7 +36,9 @@ export const settingsRepository = {
   set(patch: Partial<Settings>): Settings {
     // key 留空（''）或回传脱敏值（'***'）→ 不覆盖原值
     const cleaned = { ...patch }
-    if (cleaned.aiApiKey === '' || cleaned.aiApiKey === MASK) delete cleaned.aiApiKey
+    if (cleaned.aiApiKey === '' || cleaned.aiApiKey === MASK || cleaned.aiApiKey === undefined) {
+      delete cleaned.aiApiKey
+    }
     const next = { ...readRaw(), ...cleaned }
     getDb()
       .prepare(
