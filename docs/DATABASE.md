@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS diagrams (
   mermaid    TEXT NOT NULL,         -- 生成的 Mermaid 源码
   created_at INTEGER NOT NULL
 );
+
+> 阶段 6 明确**不做**（YAGNI）：无历史回看需求，未建该表。需要时按此结构补 v5 迁移。
 ```
 
 ## 3. 迁移策略

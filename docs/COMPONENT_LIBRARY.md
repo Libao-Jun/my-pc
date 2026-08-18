@@ -84,8 +84,8 @@
 |------|------|
 | `DiagramGeneratorPage` | 页面入口 |
 | `SourceInput` | 资料输入 + 图表类型选择 |
-| `MermaidPreview` | Mermaid 源码渲染（`mermaid.render`） |
-| `MermaidCodeView` | Mermaid 源码查看 / 复制 |
+| `MermaidPreview` | Mermaid 源码渲染（自研受限渲染器：`shared/mermaid.ts` 解析 + 分层布局 + 纯 SVG，零第三方库） |
+| `MermaidCodeView` | Mermaid 源码展示 + 复制 |
 
 ## 4. 状态管理（`src/renderer/src/stores/`）
 

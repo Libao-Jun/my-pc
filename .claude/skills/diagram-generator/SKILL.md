@@ -24,6 +24,6 @@ description: 根据所给资料生成思维导图、流程图、审批流程图�
 
 ## 集成约定
 
-- 渲染层引入 `mermaid` 库，在 React 组件 `useEffect` 里调用 `mermaid.render()`，把 SVG 结果插入容器。
-- 图表文本作为数据传入，不硬编码在组件里，便于「资料 → 图表」的动态生成。
-- 输出同时给「Mermaid 源码」和「渲染结果」，方便用户复制或二次编辑。
+- 渲染层用**自研受限渲染器**（`src/shared/mermaid.ts` 为唯一语法真相源）：只支持 `mindmap` 缩进树与 `flowchart TD/LR` 的 `A-->B` / `A--标签-->B`、`{}` 判断节点、`(( ))` 根节点；`MermaidPreview` 解析 + 布局 + 纯 SVG，零第三方库。
+- 主进程 `diagram.service` 在返回前用同一 `parseMermaid` 校验 AI 输出；不合规或 AI 失败 → `localGenerate` 本地模板兜底，`diagram:generate` 永不 reject。
+- 输出同时给「Mermaid 源码」和「渲染结果」，源码可复制、二次编辑。

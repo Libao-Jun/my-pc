@@ -179,14 +179,14 @@ interface OptimizeResult { star: { situation: string; task: string; action: stri
 
 ```ts
 interface DiagramRequest { source: string; type?: 'mindmap' | 'flowchart' | 'approval' }
-interface DiagramResult { type: 'mindmap' | 'flowchart' | 'approval'; mermaid: string }
+interface DiagramResult { type: 'mindmap' | 'flowchart' | 'approval'; mermaid: string; source: 'ai' | 'local' }
 ```
 
 | 通道 | 参数 | 返回 |
 |------|------|------|
 | `diagram:generate` | `DiagramRequest` | `DiagramResult` |
 
-> 图表渲染在**渲染层**完成（`mermaid.render()`），主进程只负责「资料 → 结构抽取 → Mermaid 源码」。AI 能力同样走适配层 + 本地兜底。
+> 图表渲染在**渲染层**完成（自研受限渲染器：仅支持 `mindmap` 缩进树与 `flowchart TD/LR` 受限子集，见 `shared/mermaid.ts`）。主进程只负责「资料 → 结构抽取 → Mermaid 源码」，并保证返回的 `mermaid` 必然通过 `validateMermaid`（受限语法校验）。AI 能力同样走适配层 + 本地兜底。
 
 ## 8. 错误码语义
 

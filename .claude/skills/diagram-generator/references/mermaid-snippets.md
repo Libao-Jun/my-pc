@@ -1,5 +1,7 @@
 # Mermaid 语法速查
 
+> 本速查只收录受限子集（`shared/mermaid.ts` 解析器支持的全部语法）；超出子集的 Mermaid 特性一律不用。
+
 ## 思维导图（mindmap）
 
 ```

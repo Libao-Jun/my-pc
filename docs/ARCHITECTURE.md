@@ -86,7 +86,7 @@ resume/diagram service → ai/ 适配层
 
 **背景**：简历 STAR 改写与「资料转图表」本质需要语义理解，本地纯规则效果有限。
 
-**状态**：已落地。阶段 4（2026-08-18）：`main/ai/adapter.ts` 提供 `complete(prompt, schema?)` + `test()`，未配置时抛 `AI_NOT_CONFIGURED`，由上层 service 走本地兜底（见 `docs/modules/ai-integration.md`）。阶段 5（2026-08-18）：`services/resume.service.ts` 的 `optimize()` 直接调用 `main/ai/adapter.ts` 的 `complete(prompt, schema?)`，AI 失败 / 未配置时走本地 STAR 规则兜底（见 `modules/resume-optimizer.md`）。图表模块（阶段 6）将复用同一契约。
+**状态**：已落地。阶段 4（2026-08-18）：`main/ai/adapter.ts` 提供 `complete(prompt, schema?)` + `test()`，未配置时抛 `AI_NOT_CONFIGURED`，由上层 service 走本地兜底（见 `docs/modules/ai-integration.md`）。阶段 5（2026-08-18）：`services/resume.service.ts` 的 `optimize()` 直接调用 `main/ai/adapter.ts` 的 `complete(prompt, schema?)`，AI 失败 / 未配置时走本地 STAR 规则兜底（见 `modules/resume-optimizer.md`）。图表模块（阶段 6）复用同一契约（`services/diagram.service.ts` 的 `generate()` 调用 `complete(prompt)`，AI 失败 / 未配置 / 受限语法校验不过时走本地模板兜底，见 `modules/diagram-generator.md`）。
 
 **决策**：
 - 引入 `main/ai/` 适配层，统一接口 `ai.complete(prompt, schema?)`。
