@@ -389,6 +389,9 @@ function locateBlock(lines: string[]): { begin: number; end: number } {
       break
     }
   }
+  // 残缺块（有开始无结束，如用户手动删掉结束标记）：视为无有效块。
+  // 否则 applyBlock/restore 里 end+1===0 → slice(0) 会把整个 hosts 拼到块后，整文件重复。
+  if (begin >= 0 && end < 0) return { begin: -1, end: -1 }
   return { begin, end }
 }
 
