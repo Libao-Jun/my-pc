@@ -1,3 +1,4 @@
+import { registerAdblockIpc } from './adblock.ipc'
 import { registerAppIpc } from './app.ipc'
 import { registerFileIpc } from './file.ipc'
 import { registerSettingsIpc } from './settings.ipc'
@@ -8,4 +9,5 @@ export function registerIpcHandlers(): void {
   registerSettingsIpc()
   registerSystemIpc()
   registerFileIpc()
+  registerAdblockIpc()
 }

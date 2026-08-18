@@ -227,4 +227,5 @@ export interface WindowApi {
   settings: SettingsApi
   system: SystemApi
   file: FileApi
+  adblock: AdblockApi
 }

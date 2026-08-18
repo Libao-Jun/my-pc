@@ -1,7 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import type {
+  AdblockRule,
+  AdblockStatus,
   AppErrorShape,
+  ApplyResult,
+  Backup,
   CpuInfo,
   DiskInfo,
   FileSearchResult,
@@ -68,6 +72,19 @@ const api: WindowApi = {
       return () => {
         ipcRenderer.removeListener('file:scan:progress', listener)
       }
+    }
+  },
+  adblock: {
+    getRules: () => invoke<AdblockRule[]>('adblock:getRules'),
+    addRule: (rule) => invoke<AdblockRule>('adblock:addRule', rule),
+    updateRule: (id, patch) => invoke<AdblockRule>('adblock:updateRule', { id, patch }),
+    removeRule: (id) => invoke<void>('adblock:removeRule', { id }),
+    apply: () => invoke<ApplyResult>('adblock:apply'),
+    restore: (backupId) => invoke<void>('adblock:restore', { backupId }),
+    getStatus: () => invoke<AdblockStatus>('adblock:getStatus'),
+    listBackups: () => invoke<Backup[]>('adblock:listBackups'),
+    relaunchElevated: () => {
+      ipcRenderer.send('adblock:relaunchElevated')
     }
   }
 }
