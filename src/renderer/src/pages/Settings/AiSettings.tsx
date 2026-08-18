@@ -61,7 +61,7 @@ export function AiSettings(): JSX.Element {
     setSaving(false)
     if (r.ok) {
       toast('已保存', 'success')
-      setHasKey(true)
+      if (apiKey) setHasKey(true) // 仅当本次确实提交了新 key 时才置 hasKey
       setApiKey('') // 清空 key 输入，避免「留空=不修改」被后续操作误覆盖
     } else {
       toast(r.error.message, 'error')
