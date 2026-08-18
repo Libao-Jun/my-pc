@@ -93,6 +93,62 @@ export interface SystemOverview {
   memory: { total: number; used: number; free: number; usedPercent: number }
 }
 
+// —— 大文件域（file）——
+export type FileCategory = 'video' | 'image' | 'document' | 'audio' | 'archive' | 'other'
+
+export interface FileEntry {
+  path: string // 绝对路径，唯一
+  name: string
+  size: number // 字节
+  ext: string // 小写扩展名，不含点
+  category: FileCategory
+  birthtime: number // 创建时间（毫秒）
+  mtime: number // 修改时间（毫秒）
+}
+
+export interface ScanOptions {
+  roots: string[] // 绝对路径
+  minSizeMB: number // 大文件阈值
+}
+
+export interface ScanProgress {
+  current: number // 已处理文件数
+  total: number // 0 = 不定进度（扫描前无法预知总数）
+  currentPath: string // 当前遍历目录
+}
+
+export interface ScanResult {
+  files: FileEntry[]
+  totalSize: number
+  skipped: number // 权限错误等跳过的目录数
+  durationMs: number
+}
+
+export interface FileStats {
+  byCategory: Record<FileCategory, { count: number; size: number }>
+  totalFiles: number
+  totalSize: number
+}
+
+export interface SearchQuery {
+  keyword?: string
+  category?: FileCategory
+  minSizeMB?: number
+  maxSizeMB?: number
+  page: number
+  pageSize: number
+}
+
+export interface FileSearchResult {
+  items: FileEntry[]
+  total: number
+}
+
+export interface ScanPresets {
+  home: string // 用户主目录
+  drives: string[] // 盘符挂载点，如 ['C:\\']
+}
+
 // window.api 的完整形状，preload 实现、renderer 消费
 export interface AppApi {
   getVersion(): Promise<IpcResult<string>>
@@ -112,6 +168,16 @@ export interface SystemApi {
   getNetwork(): Promise<IpcResult<NetworkInterface[]>>
   getProcesses(): Promise<IpcResult<ProcessInfo[]>>
   getPortProcess(port: number): Promise<IpcResult<PortProcess | null>>
+}
+
+export interface FileApi {
+  scan(options: ScanOptions): Promise<IpcResult<ScanResult>>
+  cancelScan(): void
+  search(query: SearchQuery): Promise<IpcResult<FileSearchResult>>
+  getStats(): Promise<IpcResult<FileStats>>
+  getScanPresets(): Promise<IpcResult<ScanPresets>>
+  pickDirectory(): Promise<IpcResult<string | null>>
+  onProgress(cb: (progress: ScanProgress) => void): () => void // 订阅 'file:scan:progress'，返回退订函数
 }
 
 export interface WindowApi {
