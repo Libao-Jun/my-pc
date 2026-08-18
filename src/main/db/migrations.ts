@@ -37,6 +37,27 @@ const migrations: Migration[] = [
         CREATE INDEX IF NOT EXISTS idx_files_birthtime ON files(birthtime);
       `)
     }
+  },
+  {
+    version: 3,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS adblock_rules (
+          id        TEXT PRIMARY KEY,
+          software  TEXT NOT NULL,
+          domain    TEXT NOT NULL,
+          category  TEXT NOT NULL,
+          enabled   INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE INDEX IF NOT EXISTS idx_adblock_software ON adblock_rules(software);
+        CREATE TABLE IF NOT EXISTS adblock_backups (
+          id         TEXT PRIMARY KEY,
+          created_at INTEGER NOT NULL,
+          rule_count INTEGER NOT NULL,
+          content    TEXT NOT NULL
+        );
+      `)
+    }
   }
 ]
 
