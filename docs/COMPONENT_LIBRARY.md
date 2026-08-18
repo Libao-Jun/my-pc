@@ -15,9 +15,9 @@
 | `Switch` | `checked; onChange; disabled?` | 开关（广告屏蔽规则） |
 | `Tag` | `children; tone?` | 分类 / 标签 |
 | `EmptyState` | `title?; description?; action?` | 空状态 |
-| `ConfirmDialog` | `open; title; description; onConfirm; onCancel` | 确认弹窗（回滚 / 删除） |
+| `ConfirmDialog` | `open; title; description; onConfirm; onCancel; confirmText?; danger?` | 确认弹窗（回滚 / 删除 / 提权重启） |
 | `Modal` | `open; title; onClose; children` | 通用弹窗容器 |
-| `Toast` | 通过 `useToast()` hook 触发 | 轻提示（成功 / 失败） |
+| `Toast` | `useToast()` 触发 / `ToastHost` 渲染 | 轻提示（成功 / 失败 / info） |
 | `Spinner` | `size?` | 加载中 |
 
 **约定**：
@@ -29,7 +29,7 @@
 | 组件 | 用途 |
 |------|------|
 | `AppLayout` | 整体布局：左侧导航 + 内容区（已落地） |
-| `SideNav` | 最小侧边导航（系统信息 / 大文件），高亮当前页（已落地） |
+| `SideNav` | 最小侧边导航（系统信息 / 大文件 / 广告屏蔽），高亮当前页（已落地） |
 | `TitleBar` | 自定义标题栏（可选，含窗口控制） |
 
 ## 3. 页面级组件（`src/renderer/src/pages/<Module>/`）
@@ -58,12 +58,16 @@
 | `FileSearchBar` | 搜索（文件名 / 路径 / 分类 / 大小范围） |
 
 ### 3.3 广告屏蔽（AdBlocker）
+
+> 状态：阶段 3 已全部落地。
+
 | 组件 | 用途 |
 |------|------|
 | `AdBlockerPage` | 页面入口 |
-| `RuleGroupList` | 按软件分组展示规则（开关） |
-| `RuleEditor` | 新增 / 编辑规则（软件、域名、类别） |
-| `ApplyBar` | 应用 / 恢复按钮 + 状态提示 |
+| `RuleGroupList` | 按软件分组展示规则（组级开关 + 每条独立开关，新增 / 编辑 / 删除） |
+| `RuleEditor` | 新增 / 编辑规则（软件、域名、类别）——Modal 弹窗 |
+| `ApplyBar` | 应用 / 恢复按钮 + 状态提示（含管理员横幅、DNS 提示、提权重启弹窗） |
+| `BackupList` | hosts 备份记录列表（`listBackups` + 一键恢复） |
 
 ### 3.4 简历优化（ResumeOptimizer）
 | 组件 | 用途 |

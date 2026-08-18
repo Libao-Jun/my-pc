@@ -118,10 +118,17 @@ interface ScanPresets { home: string; drives: string[] } // home 用户主目录
 ```ts
 interface AdblockRule {
   id: string; software: string;     // 所属软件分组，如「搜狗输入法」
-  domain: string; category: 'ad' | 'recommend';  // 广告 or 个性化推荐
+  domain: string;                   // 屏蔽域名（小写，字面域名，不支持通配符）
+  category: 'ad' | 'recommend';     // 广告 or 个性化推荐
   enabled: boolean;
 }
-interface AdblockStatus { applied: boolean; ruleCount: number; enabledCount: number; lastAppliedAt: number | null }
+interface AdblockStatus {
+  applied: boolean;                 // hosts 中是否存在托管段
+  ruleCount: number;
+  enabledCount: number;
+  lastAppliedAt: number | null;     // 最新备份时间（毫秒）
+  elevated: boolean;                // 当前进程是否具备管理员权限
+}
 interface Backup { id: string; createdAt: number; ruleCount: number }
 interface ApplyResult { written: number; backupId: string; needsFlushDns: boolean }
 ```
@@ -136,6 +143,9 @@ interface ApplyResult { written: number; backupId: string; needsFlushDns: boolea
 | `adblock:restore` | `{ backupId?: string }` | `void` |
 | `adblock:getStatus` | — | `AdblockStatus` |
 | `adblock:listBackups` | — | `Backup[]` |
+| `adblock:relaunchElevated` | — | `void` |
+
+> `adblock:relaunchElevated` 为**单向事件**（`ipcRenderer.send`，不返回结果）：以管理员身份重启应用。由非管理员状态下写入失败（`PERMISSION_DENIED`）后的引导弹窗触发。
 
 ## 6. 简历优化域（resume）
 
@@ -175,7 +185,7 @@ interface DiagramResult { type: 'mindmap' | 'flowchart' | 'approval'; mermaid: s
 
 | code | 含义 | 触发场景 |
 |------|------|---------|
-| `NOT_FOUND` | 资源不存在 | 端口无占用进程、简历未初始化 |
+| `NOT_FOUND` | 资源不存在 | 端口无占用进程、简历未初始化、`adblock:restore` 无可用备份 |
 | `VALIDATION_ERROR` | 参数非法 | 端口号越界、域名格式错误 |
 | `PERMISSION_DENIED` | 权限不足 | hosts 写入无管理员权限 |
 | `AI_UNAVAILABLE` | 未配置 AI 后端 | 未配置 key 且无本地兜底命中 |

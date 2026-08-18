@@ -125,7 +125,7 @@ function runMigrations(db: DatabaseSync): void {
 | repository | 关联表 | 主要方法 |
 |-----------|--------|---------|
 | `file.repository.ts` | `files` | `upsertMany`, `search`, `stats`, `listByCategory` |
-| `adblock.repository.ts` | `adblock_rules`, `adblock_backups` | `list`, `add`, `update`, `remove`, `saveBackup`, `listBackups` |
+| `adblock.repository.ts` | `adblock_rules`, `adblock_backups` | `list`, `add`, `update`, `remove`, `saveBackup`, `listBackups`, `pruneBackups`, `isSeeded`, `markSeeded` |
 | `resume.repository.ts` | `resumes` | `load`, `save` |
 | `settings.repository.ts` | `settings` | `get`, `set` |
 | `diagram.repository.ts` | `diagrams` | `save`, `listRecent` |
