@@ -3,6 +3,11 @@ import { getDb } from '../index'
 
 const MB = 1024 * 1024
 
+// SQLite LIKE 通配符转义：`\`、`%`、`_` 都需转义（ESCAPE '\'）
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (m) => `\\${m}`)
+}
+
 export const fileRepository = {
   upsertMany(entries: FileEntry[]): void {
     if (entries.length === 0) return
@@ -35,9 +40,10 @@ export const fileRepository = {
     const where: string[] = []
     const params: (string | number)[] = []
 
-    if (query.keyword) {
-      where.push('(name LIKE ? COLLATE NOCASE OR path LIKE ? COLLATE NOCASE)')
-      const kw = `%${query.keyword}%`
+    const keyword = query.keyword?.trim() ?? ''
+    if (keyword) {
+      const kw = `%${escapeLike(keyword)}%`
+      where.push("(name COLLATE NOCASE LIKE ? ESCAPE '\\' OR path COLLATE NOCASE LIKE ? ESCAPE '\\')")
       params.push(kw, kw)
     }
     if (query.category) {
@@ -54,7 +60,7 @@ export const fileRepository = {
     }
     const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : ''
     const limit = Math.max(1, query.pageSize)
-    const offset = Math.max(0, (query.page - 1) * query.pageSize)
+    const offset = Math.max(0, (query.page - 1) * limit)
 
     const totalRow = db
       .prepare(`SELECT COUNT(*) AS total FROM files ${whereSql}`)
@@ -63,7 +69,7 @@ export const fileRepository = {
       .prepare(
         `SELECT path, name, size, ext, category, birthtime, mtime
          FROM files ${whereSql}
-         ORDER BY size DESC
+         ORDER BY size DESC, path ASC
          LIMIT ? OFFSET ?`
       )
       .all(...params, limit, offset) as unknown as FileEntry[]
@@ -102,8 +108,8 @@ export const fileRepository = {
     const sep = root.endsWith('\\') || root.endsWith('/') ? '' : '/'
     const prefix = `${root}${sep}`
     const existing = db
-      .prepare('SELECT path FROM files WHERE path LIKE ?')
-      .all(`${prefix}%`) as { path: string }[]
+      .prepare("SELECT path FROM files WHERE path LIKE ? ESCAPE '\\'")
+      .all(`${escapeLike(prefix)}%`) as { path: string }[]
 
     const stale = existing.filter((r) => !seenPaths.has(r.path)).map((r) => r.path)
     if (stale.length === 0) return
