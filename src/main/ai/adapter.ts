@@ -75,15 +75,30 @@ async function callOpenAi(
     ]
   }
   if (schema) body.response_format = { type: 'json_object' } // OpenAI 兼容才支持
-  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
-    body: JSON.stringify(body),
-    signal
-  })
+  let res: Response
+  try {
+    res = await fetch(`${cfg.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
+      body: JSON.stringify(body),
+      signal
+    })
+  } catch (err) {
+    // 网络失败（DNS/连接拒绝/离线）→ AI_UNAVAILABLE；AppError 原样透传（AI_TIMEOUT 由 withTimeout 兜底）
+    if (err instanceof AppError) throw err
+    throw new AppError('AI_UNAVAILABLE', 'AI 服务网络不可达，请检查地址与网络')
+  }
   if (!res.ok) throw new AppError('AI_API_ERROR', `AI 服务返回错误：HTTP ${res.status}`)
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> }
-  const content = data.choices?.[0]?.message?.content
+  let data: unknown
+  try {
+    data = await res.json()
+  } catch (err) {
+    // 非 JSON 响应体（如代理返回 HTML 错误页）→ AI_UNAVAILABLE
+    if (err instanceof AppError) throw err
+    throw new AppError('AI_UNAVAILABLE', 'AI 服务响应格式异常')
+  }
+  if (!data || typeof data !== 'object') throw new AppError('AI_UNAVAILABLE', 'AI 服务响应格式异常')
+  const content = (data as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content
   if (typeof content !== 'string' || content.trim() === '') {
     throw new AppError('AI_UNAVAILABLE', 'AI 服务响应格式异常')
   }
@@ -103,19 +118,34 @@ async function callAnthropic(
     messages: [{ role: 'user', content: prompt }]
   }
   if (schema) body.system = buildSchemaPrompt(schema) // Anthropic 无 response_format，仅 prompt 引导
-  const res = await fetch(`${cfg.baseUrl}/v1/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': cfg.apiKey,
-      'anthropic-version': ANTHROPIC_VERSION
-    },
-    body: JSON.stringify(body),
-    signal
-  })
+  let res: Response
+  try {
+    res = await fetch(`${cfg.baseUrl}/v1/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': cfg.apiKey,
+        'anthropic-version': ANTHROPIC_VERSION
+      },
+      body: JSON.stringify(body),
+      signal
+    })
+  } catch (err) {
+    // 网络失败（DNS/连接拒绝/离线）→ AI_UNAVAILABLE；AppError 原样透传（AI_TIMEOUT 由 withTimeout 兜底）
+    if (err instanceof AppError) throw err
+    throw new AppError('AI_UNAVAILABLE', 'AI 服务网络不可达，请检查地址与网络')
+  }
   if (!res.ok) throw new AppError('AI_API_ERROR', `AI 服务返回错误：HTTP ${res.status}`)
-  const data = (await res.json()) as { content?: Array<{ type?: string; text?: string }> }
-  const text = (data.content ?? [])
+  let data: unknown
+  try {
+    data = await res.json()
+  } catch (err) {
+    // 非 JSON 响应体（如代理返回 HTML 错误页）→ AI_UNAVAILABLE
+    if (err instanceof AppError) throw err
+    throw new AppError('AI_UNAVAILABLE', 'AI 服务响应格式异常')
+  }
+  if (!data || typeof data !== 'object') throw new AppError('AI_UNAVAILABLE', 'AI 服务响应格式异常')
+  const text = ((data as { content?: Array<{ type?: string; text?: string }> }).content ?? [])
     .filter((b) => b.type === 'text')
     .map((b) => b.text ?? '')
     .join('')
