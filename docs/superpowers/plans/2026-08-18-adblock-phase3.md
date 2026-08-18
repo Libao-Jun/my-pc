@@ -810,8 +810,8 @@ interface ModalProps {
   children: ReactNode
 }
 
-export function Modal({ open, title, onClose, children }: ModalProps): JSX.Element {
-  if (!open) return null
+export function Modal({ open, title, onClose, children }: ModalProps): JSX.Element | null {
+  if (!open) return null // 关闭时返回 null，签名需含 null 才能过严格类型检查
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
