@@ -1536,7 +1536,7 @@ export function FileSearchBar(): JSX.Element {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const buildQuery = (
-    patch: { keyword?: string; category?: string; minSizeMB?: number; maxSizeMB?: number },
+    patch: { keyword?: string; category?: '' | FileCategory; minSizeMB?: number; maxSizeMB?: number },
     nextPage: number
   ): SearchQuery => ({
     keyword: (patch.keyword ?? keyword).trim() || undefined,
