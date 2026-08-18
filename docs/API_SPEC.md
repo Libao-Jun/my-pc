@@ -162,7 +162,7 @@ interface Resume {
   projects: ProjectItem[];    // { name, role, start, end, description, bullets, tags }
 }
 interface OptimizeRequest { section: 'experience' | 'project' | 'skill'; input: string }
-interface OptimizeResult { star: { situation: string; task: string; action: string; result: string } }
+interface OptimizeResult { star: { situation: string; task: string; action: string; result: string }; source: 'ai' | 'local' }
 ```
 
 | 通道 | 参数 | 返回 |
@@ -170,8 +170,10 @@ interface OptimizeResult { star: { situation: string; task: string; action: stri
 | `resume:load` | — | `Resume \| null` |
 | `resume:save` | `Resume` | `Resume` |
 | `resume:optimize` | `OptimizeRequest` | `OptimizeResult` |
+| `resume:export` | `{ type: 'markdown' \| 'json'; resume: Resume }` | `{ path: string } \| null` |
+| `resume:import` | — | `Resume \| null` |
 
-> `resume:optimize` 走 AI 适配层：已配置后端 → LLM 结构化改写；未配置 / 失败 → 本地 STAR 模板兜底（见 `modules/resume-optimizer.md`）。
+> `resume:optimize` 走 AI 适配层：已配置后端 → LLM 结构化改写；未配置 / 失败 → 本地 STAR 模板兜底（见 `modules/resume-optimizer.md`）。`resume:export` 由渲染层传入当前内存态简历（所见即所得）；`resume:import` 走主进程对话框读 JSON 并校验。
 
 ## 7. 图表生成域（diagram）
 

@@ -1,5 +1,7 @@
 # 模块设计：简历优化（resume-optimizer）
 
+> 状态：阶段 5 已落地（2026-08-18，见 §7）。核心裁定：单条 STAR 改写（AI 优先 / 本地规则兜底不编造）、显式保存、导出 Markdown + 导入导出 JSON。
+
 对应需求 4：基于 STAR 原则优化个人简历（技能 / 工作经历 / 项目经历）。
 
 ## 1. 需求
@@ -23,7 +25,11 @@
 
 ## 3. IPC 接口
 
-见 `API_SPEC.md` §6：`resume:load` / `resume:save` / `resume:optimize`。
+见 `API_SPEC.md` §6：`resume:load` / `resume:save` / `resume:optimize` / `resume:export` / `resume:import`。
+
+- `resume:export`：导出当前内存态简历为 Markdown / JSON（所见即所得）。
+- `resume:import`：走主进程对话框读 JSON 并校验。
+- `OptimizeResult` 注明含 `source` 字段（AI 改写 / 本地兜底）。
 
 ## 4. 数据
 
@@ -43,7 +49,7 @@
 
 ## 7. 验收标准
 
-- [ ] 可编辑并保存技能 / 工作经历 / 项目经历。
-- [ ] 输入平淡经历，输出结构化 STAR 描述（四段齐全，行动用主动语态，结果尽量量化）。
-- [ ] 未配置 AI 后端时仍能走本地兜底产出结构。
-- [ ] 重启后简历仍在。
+- [x] 可编辑并保存技能 / 工作经历 / 项目经历。
+- [x] 输入平淡经历，输出结构化 STAR 描述（四段齐全，行动用主动语态，结果尽量量化）。
+- [x] 未配置 AI 后端时仍能走本地兜底产出结构。
+- [x] 重启后简历仍在。
