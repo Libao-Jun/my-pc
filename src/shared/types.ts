@@ -179,6 +179,49 @@ export interface FileApi {
   onProgress(cb: (progress: ScanProgress) => void): () => void // 订阅 'file:scan:progress'，返回退订函数
 }
 
+// —— 广告屏蔽域（adblock）——
+export type AdblockCategory = 'ad' | 'recommend' // ad = 广告，recommend = 个性化推荐
+
+export interface AdblockRule {
+  id: string
+  software: string // 所属软件分组，如「搜狗输入法」
+  domain: string // 屏蔽域名（小写，字面域名，不支持通配符）
+  category: AdblockCategory
+  enabled: boolean
+}
+
+export interface AdblockStatus {
+  applied: boolean // hosts 中是否存在托管段
+  ruleCount: number
+  enabledCount: number
+  lastAppliedAt: number | null // 最新备份时间（毫秒）
+  elevated: boolean // 当前进程是否具备管理员权限
+}
+
+export interface Backup {
+  id: string
+  createdAt: number
+  ruleCount: number
+}
+
+export interface ApplyResult {
+  written: number // 本次写入的规则数
+  backupId: string
+  needsFlushDns: boolean // DNS 刷新失败，需提示用户手动 ipconfig /flushdns
+}
+
+export interface AdblockApi {
+  getRules(): Promise<IpcResult<AdblockRule[]>>
+  addRule(rule: Omit<AdblockRule, 'id'>): Promise<IpcResult<AdblockRule>>
+  updateRule(id: string, patch: Partial<AdblockRule>): Promise<IpcResult<AdblockRule>>
+  removeRule(id: string): Promise<IpcResult<void>>
+  apply(): Promise<IpcResult<ApplyResult>>
+  restore(backupId?: string): Promise<IpcResult<void>>
+  getStatus(): Promise<IpcResult<AdblockStatus>>
+  listBackups(): Promise<IpcResult<Backup[]>>
+  relaunchElevated(): void // 以管理员身份重启应用
+}
+
 export interface WindowApi {
   app: AppApi
   settings: SettingsApi
