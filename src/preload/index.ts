@@ -13,8 +13,10 @@ import type {
   IpcResult,
   MemoryInfo,
   NetworkInterface,
+  OptimizeResult,
   PortProcess,
   ProcessInfo,
+  Resume,
   ScanOptions,
   ScanPresets,
   ScanProgress,
@@ -89,6 +91,13 @@ const api: WindowApi = {
     relaunchElevated: () => {
       ipcRenderer.send('adblock:relaunchElevated')
     }
+  },
+  resume: {
+    load: () => invoke<Resume | null>('resume:load'),
+    save: (resume) => invoke<Resume>('resume:save', resume),
+    optimize: (req) => invoke<OptimizeResult>('resume:optimize', req),
+    export: (payload) => invoke<{ path: string } | null>('resume:export', payload),
+    import: () => invoke<Resume | null>('resume:import')
   }
 }
 

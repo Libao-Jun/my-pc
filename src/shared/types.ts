@@ -240,6 +240,64 @@ export interface AdblockApi {
   relaunchElevated(): void // 以管理员身份重启应用
 }
 
+// —— 简历优化域（resume）——
+export interface SkillItem {
+  name: string // 技能名
+  level: string // 熟练度：了解 / 掌握 / 熟练 / 精通
+  years: string // 年限，自由文本，如 '3 年'
+  note: string // 一句可验证说明
+}
+
+export interface ExperienceItem {
+  company: string
+  title: string
+  start: string // 自由文本，如 '2020-07'
+  end: string // 如 '2024-06'，在职可留空
+  bullets: string[] // 职责 / 成果，逐条可优化
+}
+
+export interface ProjectItem {
+  name: string
+  role: string
+  start: string
+  end: string
+  description: string
+  bullets: string[] // 逐条可优化
+  tags: string[] // 技术栈标签
+}
+
+export interface Resume {
+  basics: { name: string; title: string; summary: string }
+  skills: SkillItem[]
+  experience: ExperienceItem[]
+  projects: ProjectItem[]
+}
+
+export interface Star {
+  situation: string
+  task: string
+  action: string
+  result: string
+}
+
+export interface OptimizeRequest {
+  section: 'experience' | 'project' | 'skill'
+  input: string
+}
+
+export interface OptimizeResult {
+  star: Star
+  source: 'ai' | 'local' // 用于 UI 展示「AI 优化 / 本地模板」角标
+}
+
+export interface ResumeApi {
+  load(): Promise<IpcResult<Resume | null>>
+  save(resume: Resume): Promise<IpcResult<Resume>>
+  optimize(req: OptimizeRequest): Promise<IpcResult<OptimizeResult>>
+  export(payload: { type: 'markdown' | 'json'; resume: Resume }): Promise<IpcResult<{ path: string } | null>>
+  import(): Promise<IpcResult<Resume | null>>
+}
+
 export interface WindowApi {
   app: AppApi
   settings: SettingsApi
@@ -247,4 +305,5 @@ export interface WindowApi {
   system: SystemApi
   file: FileApi
   adblock: AdblockApi
+  resume: ResumeApi
 }
