@@ -24,7 +24,7 @@ Electron 应用分三块，职责严格分离：
 ```
 ipc/        ← 控制器层：解析通道名与参数，转调 service，统一错误
 services/   ← 服务层：业务逻辑（采集、扫描、屏蔽、优化、生成）
-db/         ← 数据访问层：better-sqlite3 连接、迁移、repository
+db/         ← 数据访问层：node:sqlite 连接、迁移、repository
 ai/         ← 横向能力：可选 LLM 后端适配（被 resume/diagram service 依赖）
 ```
 
@@ -106,7 +106,7 @@ resume/diagram service → ai/ 适配层
 - 明确不做软件注入、二进制篡改、内存修改。
 - 每次修改前备份、支持一键回滚；需要管理员权限（详见 `modules/ad-blocker.md`）。
 
-### 5.4 持久化：better-sqlite3 同步 + repository
+### 5.4 持久化：node:sqlite 同步 + repository
 
 - 单机场景无并发压力，选同步 API 简化代码；所有写操作集中在主进程，避免跨进程竞争。
 - 建表走版本化迁移（`db/migrations.ts`），repository 按功能域划分。
@@ -131,5 +131,5 @@ resume/diagram service → ai/ 适配层
 | 大目录扫描阻塞 / 卡顿 | 后台线程 + 分片让出事件循环 + 跳过系统目录 + 权限容错 |
 | hosts 修改需管理员权限 | 提权引导 + 失败友好提示 + 备份回滚 |
 | AI 调用不稳定 / 无网络 | 本地规则兜底 + 超时 + 错误降级 |
-| `better-sqlite3` 需编译原生模块 | 用预编译版本，锁定 Node 版本，CI 缓存 |
+| `node:sqlite` 为实验性 API，接口可能变动 | 锁定 Electron 版本（Node 22.19），封装在 `db/` 层隔离影响 |
 | 端口反查跨平台差异 | 主路径 `systeminformation`，Windows 用 `netstat` 兜底，抽象成统一接口 |

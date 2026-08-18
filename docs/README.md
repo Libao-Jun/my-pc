@@ -28,13 +28,13 @@ my-pc 是一款 **Electron 桌面应用**，面向个人电脑的「运维 + 效
 
 | 类别 | 选型 | 理由 |
 |------|------|------|
-| 桌面框架 | Electron 30+ | 跨平台、生态成熟 |
+| 桌面框架 | Electron 36+ | 跨平台、生态成熟，内置 Node 22（含 `node:sqlite`） |
 | 构建 | electron-vite | main / preload / renderer 统一 Vite 构建，HMR |
 | 前端 | React 18 + TypeScript 5 | 组件化、类型安全 |
 | 状态管理 | Zustand | 轻量、无样板代码，适合桌面 |
 | 样式 | CSS Modules + 设计令牌 | 作用域隔离、可控 |
-| 运行时 | Node.js 20+ | 主进程系统能力 |
-| 数据库 | better-sqlite3 | 同步 API、免服务、适合单机 |
+| 运行时 | Node.js 22+（Electron 内置） | 主进程系统能力 |
+| 数据库 | node:sqlite（Node 内置） | 零原生编译、同步 API、免依赖 |
 | 系统信息 | systeminformation | CPU / 磁盘 / 网络 / 进程一站式 |
 | 图表渲染 | mermaid | 文本转图、跨端一致 |
 | AI 后端（可选） | 可配置（OpenAI 兼容 / Anthropic） | 简历优化与图表生成的核心能力 |
@@ -58,7 +58,7 @@ my-pc 是一款 **Electron 桌面应用**，面向个人电脑的「运维 + 效
 │   ├─ ipc/        路由到各功能域处理器                                  │
 │   ├─ services/   业务逻辑（system / file / adblock / resume / diagram）│
 │   ├─ ai/         可选 LLM 后端适配层                                   │
-│   └─ db/         better-sqlite3 连接 + repository                     │
+│   └─ db/         node:sqlite   连接 + repository                     │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -103,10 +103,12 @@ my-pc/
 > 里程碑按「可运行、可验证」切分，每阶段产出可演示的增量。阶段间有依赖，需串行推进。
 
 ### 阶段 0 · 工程脚手架（目标：空壳可启动）
-- 初始化 electron-vite + React + TS，配好 `tsconfig`、ESLint、目录结构。
-- 跑通 main / preload / renderer 三段与一个最小 IPC 往返（如 `app:ping`）。
-- 接入 better-sqlite3，跑通数据库初始化与迁移。
-- **验收**：`npm run dev` 打开窗口，渲染层能调用主进程拿到返回值。
+- 初始化 electron-vite + React + TS，配好 `tsconfig`、目录结构。
+- 跑通 main / preload / renderer 三段与最小 IPC 往返（`app:ping`、`app:getVersion`、`settings:*`）。
+- 接入 SQLite（Node 内置 `node:sqlite`），跑通数据库初始化、版本化迁移与设置项持久化。
+- **验收**：`npm run dev` 打开窗口，渲染层能调用主进程拿到返回值，设置项可持久化。
+
+> **说明**：Electron 36+ 内置 Node 22，直接使用 `node:sqlite`（实验性 API），零原生编译、无需 Python/MSVC。数据访问层设计见 `DATABASE.md`。
 
 ### 阶段 1 · 系统信息模块（目标：核心价值闭环）
 - 实现 `system-monitor` 模块：概览 / CPU / 内存 / 硬盘 / 网络 / 进程 / 端口反查。

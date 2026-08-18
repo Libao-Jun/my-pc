@@ -22,7 +22,7 @@ my-pc 采用 Electron 三层结构：**主进程（main）/ 预加载（preload�
 
 ## 数据访问层（SQLite）
 
-- 用 `better-sqlite3`，封装成 data-access 层（对应 `.ai-rules/backend-rules.md` 三层架构中的「数据访问层」）。
+- 用 Node 内置 `node:sqlite`（`DatabaseSync`），封装成 data-access 层（对应 `.ai-rules/backend-rules.md` 三层架构中的「数据访问层」）。
 - 每个功能域一个 repository 模块（如 `system-repository.ts`、`file-repository.ts`），统一管理建表、查询、索引。
 - 数据库操作只发生在主进程，渲染层通过 IPC 间接读写。
 

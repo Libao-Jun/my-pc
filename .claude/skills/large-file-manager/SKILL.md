@@ -43,7 +43,7 @@ async function walk(dir: string, onFile: (full: string, size: number) => void) {
 
 ## 搜索与索引
 
-- 扫描结果写入 **SQLite**（`better-sqlite3`），建表 `files(path TEXT PRIMARY KEY, name, size, ext, category, birthtime, mtime)`，为 `name`、`category`、`size` 建索引。
+- 扫描结果写入 **SQLite**（`node:sqlite`），建表 `files(path TEXT PRIMARY KEY, name, size, ext, category, birthtime, mtime)`，为 `name`、`category`、`size` 建索引。
 - 搜索用 SQL `LIKE` 匹配文件名 / 路径（大小写不敏感），大结果集分页返回。
 
 ## IPC 暴露

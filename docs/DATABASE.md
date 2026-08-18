@@ -1,6 +1,6 @@
 # 数据库设计
 
-my-pc 使用 **better-sqlite3**（同步 API）作为本地存储。数据库文件默认放应用 `userData` 目录（如 `%APPDATA%/my-pc/data.db`）。
+my-pc 使用 Node 内置的 **`node:sqlite`**（`DatabaseSync`，同步 API，零原生编译）作为本地存储。数据库文件默认放应用 `userData` 目录（如 `%APPDATA%/my-pc/data.db`）。
 
 ## 1. 设计原则
 
@@ -8,6 +8,7 @@ my-pc 使用 **better-sqlite3**（同步 API）作为本地存储。数据库文
 - 建表走**版本化迁移**（`db/migrations.ts`），用 `PRAGMA user_version` 记录版本。
 - 打开连接时启用 WAL（`PRAGMA journal_mode = WAL`），提升并发读写体验。
 - 金额 / 字节等一律存整数，避免浮点误差；时间戳存 Unix 毫秒（`INTEGER`）。
+- `node:sqlite` 无 `.pragma()` / `.transaction()` 辅助方法：`PRAGMA` 用 `prepare(...).get()` 读、`exec()` 写；事务用 `BEGIN/COMMIT/ROLLBACK` 手动控制。
 
 ## 2. 表结构
 
@@ -96,13 +97,27 @@ CREATE TABLE IF NOT EXISTS diagrams (
 - 启动时读取 `PRAGMA user_version`，按序执行未应用的迁移，每个迁移包在事务里并更新 `user_version`。
 - 只追加迁移，不修改历史迁移（保证已发布版本可平滑升级）。
 
-示例骨架：
+示例骨架（`node:sqlite` 风格，事务手动控制）：
 
 ```ts
-const migrations = [
-  { version: 1, up: (db) => { db.exec(`/* 建 files / adblock_rules / ... */`); } },
-  { version: 2, up: (db) => { db.exec(`/* 后续加表 / 加列 */`); } },
-];
+import type { DatabaseSync } from 'node:sqlite'
+
+function runMigrations(db: DatabaseSync): void {
+  const { user_version } = db.prepare('PRAGMA user_version').get() as { user_version: number }
+  for (const m of migrations) {
+    if (m.version > user_version) {
+      db.exec('BEGIN')
+      try {
+        m.up(db)
+        db.exec(`PRAGMA user_version = ${m.version}`)
+        db.exec('COMMIT')
+      } catch (err) {
+        db.exec('ROLLBACK')
+        throw err
+      }
+    }
+  }
+}
 ```
 
 ## 4. Repository 划分

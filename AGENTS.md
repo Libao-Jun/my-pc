@@ -14,7 +14,7 @@
 2. 前端：函数组件 + Hooks，Props 定义接口，样式用 CSS Modules。
 3. 后端：控制器 → 服务 → 数据访问 三层架构，接口参数校验（Zod），统一错误类。
 4. Electron：`contextIsolation: true`、`nodeIntegration: false`，IPC 走 `contextBridge` + `invoke`，只传可序列化数据。
-5. 数据库操作统一走 SQLite 数据访问层（`better-sqlite3`）。
+5. 数据库操作统一走 SQLite 数据访问层（Node 内置 `node:sqlite`）。
 
 ## 目录与文档指针
 
