@@ -744,7 +744,7 @@ export const useFileStore = create<FileState>((set, get) => ({
   search: async (query) => {
     const r = await window.api.file.search(query)
     if (r.ok) {
-      set({ files: r.data.items, total: r.data.total, query, error: null })
+      set({ files: r.data.items, total: r.data.total, error: null })
     } else {
       set({ error: r.error.message })
     }
