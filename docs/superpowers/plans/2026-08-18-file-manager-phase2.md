@@ -60,7 +60,6 @@ export interface ScanProgress {
 }
 
 export interface ScanResult {
-  files: FileEntry[]
   totalSize: number
   skipped: number // 权限错误等跳过的目录数
   durationMs: number
@@ -392,10 +391,11 @@ async function scanRoot(
   minSizeBytes: number,
   emit: (p: ScanProgress) => void,
   controller: { cancelled: boolean }
-): Promise<{ files: FileEntry[]; skipped: number }> {
+): Promise<{ files: FileEntry[]; skipped: number; rootOk: boolean }> {
   const files: FileEntry[] = []
   let batch: FileEntry[] = []
   let skipped = 0
+  let rootOk = true
 
   const flush = (): void => {
     if (batch.length > 0) {
@@ -411,6 +411,7 @@ async function scanRoot(
       entries = await readdir(dir, { withFileTypes: true })
     } catch {
       skipped++ // EACCES / EPERM / 目录已消失
+      if (dir === root) rootOk = false // 根目录不可读：调用方据此跳过 pruneRoot，避免误删整库索引
       return
     }
     emit({ current: files.length + batch.length, total: 0, currentPath: dir })
@@ -452,7 +453,7 @@ async function scanRoot(
 
   await walk(root)
   flush()
-  return { files, skipped }
+  return { files, skipped, rootOk }
 }
 
 export async function scan(
@@ -472,24 +473,23 @@ export async function scan(
   const controller = { cancelled: false }
   activeScan = controller
   const started = Date.now()
-  const allFiles: FileEntry[] = []
+  let totalSize = 0
   let skippedTotal = 0
 
   try {
     for (const root of options.roots) {
       if (controller.cancelled) throw new AppError('CANCELLED', '扫描已取消')
-      const { files, skipped } = await scanRoot(root, minSizeBytes, emit, controller)
-      allFiles.push(...files)
+      const { files, skipped, rootOk } = await scanRoot(root, minSizeBytes, emit, controller)
+      totalSize += files.reduce((acc, f) => acc + f.size, 0)
       skippedTotal += skipped
-      // 仅完整扫描结束才清理失效索引（取消则跳过）
-      fileRepository.pruneRoot(root, new Set(files.map((f) => f.path)))
+      // 仅完整扫描结束才清理失效索引（取消则跳过）；根目录读取失败则跳过清理，避免误删整库
+      if (rootOk) fileRepository.pruneRoot(root, new Set(files.map((f) => f.path)))
     }
   } finally {
     activeScan = null
   }
 
-  const totalSize = allFiles.reduce((acc, f) => acc + f.size, 0)
-  return { files: allFiles, totalSize, skipped: skippedTotal, durationMs: Date.now() - started }
+  return { totalSize, skipped: skippedTotal, durationMs: Date.now() - started }
 }
 
 export function search(query: SearchQuery): Promise<FileSearchResult> {
@@ -699,6 +699,10 @@ import type { FileEntry, FileStats, ScanProgress, SearchQuery } from '@shared/ty
 const PAGE_SIZE = 50
 const DEFAULT_QUERY: SearchQuery = { page: 1, pageSize: PAGE_SIZE }
 
+// IPC 无法稳定透传 Error.code（Electron 序列化限制），取消动作可能落回 INTERNAL。
+// 用本地标志位区分「用户主动取消」与真实错误，避免取消时误弹错误提示。
+let cancelRequested = false
+
 interface FileState {
   scanning: boolean
   progress: ScanProgress | null
@@ -721,6 +725,7 @@ export const useFileStore = create<FileState>((set, get) => ({
   error: null,
 
   startScan: async (roots, minSizeMB) => {
+    cancelRequested = false // 新一轮扫描重置取消标志
     set({ scanning: true, error: null, progress: null })
     const unsub = window.api.file.onProgress((progress) => set({ progress }))
     try {
@@ -728,7 +733,7 @@ export const useFileStore = create<FileState>((set, get) => ({
       if (r.ok) {
         await get().loadStats()
         await get().search({ ...DEFAULT_QUERY })
-      } else if (r.error.code !== 'CANCELLED') {
+      } else if (!cancelRequested) {
         set({ error: r.error.message })
       }
     } finally {
@@ -738,6 +743,7 @@ export const useFileStore = create<FileState>((set, get) => ({
   },
 
   cancelScan: () => {
+    cancelRequested = true // 先落标志，再通知主进程；返回的 INTERNAL 错误不再弹窗
     window.api.file.cancelScan()
   },
 
@@ -1541,8 +1547,18 @@ export function FileSearchBar(): JSX.Element {
   ): SearchQuery => ({
     keyword: (patch.keyword ?? keyword).trim() || undefined,
     category: (patch.category ?? category) || undefined,
-    minSizeMB: patch.minSizeMB ?? (minMB ? Number(minMB) : undefined),
-    maxSizeMB: patch.maxSizeMB ?? (maxMB ? Number(maxMB) : undefined),
+    // 用 hasOwnProperty 区分「显式清空（undefined）」与「未提供」，避免清空输入框时
+    // 沿用上一次的旧值（stale closure），导致清空后搜索结果仍被旧大小范围过滤
+    minSizeMB: Object.prototype.hasOwnProperty.call(patch, 'minSizeMB')
+      ? patch.minSizeMB
+      : minMB
+        ? Number(minMB)
+        : undefined,
+    maxSizeMB: Object.prototype.hasOwnProperty.call(patch, 'maxSizeMB')
+      ? patch.maxSizeMB
+      : maxMB
+        ? Number(maxMB)
+        : undefined,
     page: nextPage,
     pageSize: PAGE_SIZE
   })
