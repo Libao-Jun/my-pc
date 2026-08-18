@@ -184,4 +184,5 @@ export interface WindowApi {
   app: AppApi
   settings: SettingsApi
   system: SystemApi
+  file: FileApi
 }

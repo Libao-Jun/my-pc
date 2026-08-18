@@ -1,13 +1,21 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { IpcRendererEvent } from 'electron'
 import type {
   AppErrorShape,
   CpuInfo,
   DiskInfo,
+  FileSearchResult,
+  FileStats,
   IpcResult,
   MemoryInfo,
   NetworkInterface,
   PortProcess,
   ProcessInfo,
+  ScanOptions,
+  ScanPresets,
+  ScanProgress,
+  ScanResult,
+  SearchQuery,
   Settings,
   SystemOverview,
   WindowApi
@@ -44,6 +52,23 @@ const api: WindowApi = {
     getNetwork: () => invoke<NetworkInterface[]>('system:getNetwork'),
     getProcesses: () => invoke<ProcessInfo[]>('system:getProcesses'),
     getPortProcess: (port) => invoke<PortProcess | null>('system:getPortProcess', { port })
+  },
+  file: {
+    scan: (options: ScanOptions) => invoke<ScanResult>('file:scan', options),
+    cancelScan: () => {
+      ipcRenderer.send('file:scan:cancel')
+    },
+    search: (query: SearchQuery) => invoke<FileSearchResult>('file:search', query),
+    getStats: () => invoke<FileStats>('file:getStats'),
+    getScanPresets: () => invoke<ScanPresets>('file:getScanPresets'),
+    pickDirectory: () => invoke<string | null>('file:pickDirectory'),
+    onProgress: (cb) => {
+      const listener = (_event: IpcRendererEvent, progress: ScanProgress): void => cb(progress)
+      ipcRenderer.on('file:scan:progress', listener)
+      return () => {
+        ipcRenderer.removeListener('file:scan:progress', listener)
+      }
+    }
   }
 }
 
