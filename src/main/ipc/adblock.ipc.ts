@@ -15,7 +15,15 @@ import {
 } from '../services/adblock.service'
 
 // 参数校验（与 file.ipc 同风格）；字段缺省即跳过，支持部分 patch
+const RULE_KEYS = ['software', 'domain', 'category', 'enabled'] as const
+
 function validateRule(input: Partial<AdblockRule>): void {
+  // 拒绝未知键（如 patch 携带 id），防御直接 IPC 调用方；enabled 必须是布尔
+  for (const key of Object.keys(input)) {
+    if (!RULE_KEYS.includes(key as (typeof RULE_KEYS)[number])) {
+      throw new AppError('VALIDATION_ERROR', `非法字段：${key}`)
+    }
+  }
   if (
     input.software !== undefined &&
     (typeof input.software !== 'string' || input.software.trim().length === 0 || input.software.length > 30)
@@ -30,6 +38,9 @@ function validateRule(input: Partial<AdblockRule>): void {
   }
   if (input.category !== undefined && input.category !== 'ad' && input.category !== 'recommend') {
     throw new AppError('VALIDATION_ERROR', '类别需为 ad 或 recommend')
+  }
+  if (input.enabled !== undefined && typeof input.enabled !== 'boolean') {
+    throw new AppError('VALIDATION_ERROR', 'enabled 需为布尔值')
   }
 }
 

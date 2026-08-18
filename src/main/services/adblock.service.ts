@@ -45,8 +45,9 @@ async function writeHosts(lines: string[]): Promise<void> {
   await rename(tmp, HOSTS_PATH)
 }
 
-// 定位托管段：返回块起止行号（含标记行）；无块则 begin = -1
-function locateBlock(lines: string[]): { begin: number; end: number } {
+// 定位托管段：返回块起止行号（含标记行）；无块则 begin = -1。
+// orphanBegin：检测到「有开始无结束」的孤立开始标记行号（无则 -1）。
+function locateBlock(lines: string[]): { begin: number; end: number; orphanBegin: number } {
   let begin = -1
   let end = -1
   for (let i = 0; i < lines.length; i++) {
@@ -59,8 +60,8 @@ function locateBlock(lines: string[]): { begin: number; end: number } {
   }
   // 残缺块（有开始无结束，如用户手动删掉结束标记）：视为无有效块。
   // 否则 applyBlock/restore 里 end+1===0 → slice(0) 会把整个 hosts 拼到块后，整文件重复。
-  if (begin >= 0 && end < 0) return { begin: -1, end: -1 }
-  return { begin, end }
+  if (begin >= 0 && end < 0) return { begin: -1, end: -1, orphanBegin: begin }
+  return { begin, end, orphanBegin: -1 }
 }
 
 // 组装托管段行（含标记）；规则按域名去重、限制行数
@@ -80,6 +81,10 @@ function composeBlock(rules: AdblockRule[]): string[] {
 function applyBlock(lines: string[], enabled: AdblockRule[]): string[] {
   const block = locateBlock(lines)
   const newBlock = enabled.length === 0 ? [] : composeBlock(enabled)
+  if (block.orphanBegin >= 0) {
+    // 清除孤立「开始」标记，避免下次应用把它与新块的结束标记配对，误删其间用户行
+    lines = [...lines.slice(0, block.orphanBegin), ...lines.slice(block.orphanBegin + 1)]
+  }
   return block.begin >= 0
     ? [...lines.slice(0, block.begin), ...newBlock, ...lines.slice(block.end + 1)]
     : [...lines, ...newBlock]
@@ -105,22 +110,39 @@ function flushDns(): Promise<boolean> {
 
 // —— 管理员权限 ——
 
+// 缓存几秒，避免每次规则开关的 getStatus 都 spawnSync 阻塞主进程事件循环
+let elevatedCachedAt = 0
+let elevatedCached = false
+const ELEVATED_CACHE_MS = 5000
+
 export function isElevated(): boolean {
   if (process.platform !== 'win32') return true
+  const now = Date.now()
+  if (now - elevatedCachedAt < ELEVATED_CACHE_MS) return elevatedCached
   const res = spawnSync('net', ['session'], { windowsHide: true, encoding: 'utf8' })
-  return res.status === 0
+  elevatedCached = res.status === 0
+  elevatedCachedAt = now
+  return elevatedCached
 }
 
 export function relaunchElevated(): void {
+  // PowerShell Start-Process -Verb RunAs 会弹 UAC；用户取消时该命令抛错、进程退出码非 0。
+  // 只在提权实例确认已拉起（退出码 0）后才退出当前实例，避免用户点「否」后当前实例无端消失。
   const cmd = app.isPackaged
     ? `Start-Process -FilePath "${process.execPath}" -Verb RunAs`
     : `Start-Process -FilePath "${process.execPath}" -Verb RunAs -ArgumentList "${app.getAppPath()}"`
-  spawn('powershell', ['-NoProfile', '-Command', cmd], {
+  const child = spawn('powershell', ['-NoProfile', '-Command', cmd], {
     windowsHide: true,
     detached: true,
     stdio: 'ignore'
-  }).unref()
-  setTimeout(() => app.exit(0), 300) // 给提权实例启动留一点时间，随后退出当前实例
+  })
+  child.on('error', () => {
+    // powershell 本身无法启动（极罕见）：保持当前实例
+  })
+  child.on('exit', (code) => {
+    if (code === 0) setTimeout(() => app.exit(0), 300) // 给提权实例启动留一点时间，随后退出当前实例
+    // code !== 0（用户取消 UAC / 提权失败）：当前实例保持运行
+  })
 }
 
 // —— 种子规则（首次读取按需灌入）——
@@ -193,8 +215,11 @@ export async function restore(backupId?: string): Promise<void> {
   const content = adblockRepository.getBackupContent(id)
   if (content === null) throw new AppError('NOT_FOUND', '备份不存在')
 
-  const lines = await readHostsLines()
+  let lines = await readHostsLines()
   const block = locateBlock(lines)
+  if (block.orphanBegin >= 0) {
+    lines = [...lines.slice(0, block.orphanBegin), ...lines.slice(block.orphanBegin + 1)]
+  }
   const restoreLines = content === '' ? [] : content.split(/\r?\n/)
   const newLines =
     block.begin >= 0
