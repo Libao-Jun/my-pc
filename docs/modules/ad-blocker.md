@@ -2,7 +2,7 @@
 
 对应需求 3：屏蔽电脑上软件的各种广告与个性化推荐。
 
-> 状态：阶段 3 设计已定稿（2026-08-18）。核心裁定：**托管段写入 / 引导 + 可提权重启 / 内置种子清单**。
+> 状态：阶段 3 已落地并验收通过（2026-08-18，见 §7）。核心裁定：**托管段写入 / 引导 + 可提权重启 / 内置种子清单**。
 
 ## 1. 需求
 
@@ -65,10 +65,10 @@ hosts 中以固定标记包围的**托管段**，应用 / 恢复**只读写自�
 
 ## 3. IPC 接口
 
-见 `API_SPEC.md` §5：`adblock:getRules` / `addRule` / `updateRule` / `removeRule` / `apply` / `restore` / `getStatus` / `listBackups`。
+见 `API_SPEC.md` §5：`adblock:getRules` / `addRule` / `updateRule` / `removeRule` / `apply` / `restore` / `getStatus` / `listBackups` / `relaunchElevated`（无参单事件，`ipcRenderer.send` 触发以管理员身份重启）。
 
 - `ApplyResult { written: number; backupId: string; needsFlushDns: boolean }`
-- `AdblockStatus { applied: boolean; ruleCount: number; enabledCount: number; lastAppliedAt: number | null }`
+- `AdblockStatus { applied: boolean; ruleCount: number; enabledCount: number; lastAppliedAt: number | null; elevated: boolean }`
 - `Backup { id: string; createdAt: number; ruleCount: number }`
 - 错误码：`VALIDATION_ERROR`（域名非法）、`PERMISSION_DENIED`（无管理员权限写 hosts）、`NOT_FOUND`（`restore` 无可用备份 / 备份 id 不存在）、`INTERNAL`（hosts 读失败等兜底）。
 
@@ -88,11 +88,11 @@ hosts 中以固定标记包围的**托管段**，应用 / 恢复**只读写自�
 | `AdBlockerPage` | 页面入口：状态条 + 规则组 + 操作 |
 | `RuleGroupList` | 按软件分组展示规则（组级开关 + 每条独立开关） |
 | `RuleEditor` | 新增 / 编辑规则（软件、域名、类别）——Modal 弹窗 |
-| `ApplyBar` | 应用 / 恢复按钮 + 状态提示（含管理员横幅、DNS 提示） |
+| `ApplyBar` | 应用 / 恢复按钮 + 状态提示（含管理员横幅、DNS 提示、提权重启弹窗） |
+| `BackupList` | 备份列表 + 一键恢复（Modal 展示 `listBackups`，`ConfirmDialog` 确认） |
 
 - 状态条：当前已应用 / 规则总数 / 启用数 / 上次应用时间。
-- 备份列表：Modal 展示 `listBackups` + 一键恢复（`ConfirmDialog` 确认）。
-- **补建缺失共享组件**：`Switch` / `ConfirmDialog` / `Modal` / `Toast`（广告页需要，当前未建）。
+- **阶段 3 已补建共享组件**：`Switch` / `ConfirmDialog` / `Modal` / `Toast`（见 `COMPONENT_LIBRARY.md §1`）。
 
 ## 6. 关键实现要点
 
@@ -105,8 +105,8 @@ hosts 中以固定标记包围的**托管段**，应用 / 恢复**只读写自�
 
 ## 7. 验收标准
 
-- [ ] 可新增 / 编辑 / 删除规则，并按软件分组开关（组级 + 单条）。
-- [ ] 应用后目标广告域名被解析到本机（真实机器 `ping <域名>` 返回 `0.0.0.0`）。
-- [ ] 一键恢复后托管段回到应用前状态，**hosts 文件其余部分不变**（含用户手动条目）。
-- [ ] 无管理员权限时给出明确提示与提权引导，而非静默失败。
-- [ ] 重启应用后规则与备份仍在（SQLite 持久化生效）。
+- [x] 可新增 / 编辑 / 删除规则，并按软件分组开关（组级 + 单条）。
+- [x] 应用后目标广告域名被解析到本机（真实机器 `ping <域名>` 返回 `0.0.0.0`）。
+- [x] 一键恢复后托管段回到应用前状态，**hosts 文件其余部分不变**（含用户手动条目）。
+- [x] 无管理员权限时给出明确提示与提权引导，而非静默失败。
+- [x] 重启应用后规则与备份仍在（SQLite 持久化生效）。
