@@ -7,6 +7,7 @@ import type {
   ApplyResult,
   Backup,
   CpuInfo,
+  DiagramResult,
   DiskInfo,
   FileSearchResult,
   FileStats,
@@ -98,6 +99,9 @@ const api: WindowApi = {
     optimize: (req) => invoke<OptimizeResult>('resume:optimize', req),
     export: (payload) => invoke<{ path: string } | null>('resume:export', payload),
     import: () => invoke<Resume | null>('resume:import')
+  },
+  diagram: {
+    generate: (req) => invoke<DiagramResult>('diagram:generate', req)
   }
 }
 

@@ -298,6 +298,24 @@ export interface ResumeApi {
   import(): Promise<IpcResult<Resume | null>>
 }
 
+// —— 图表生成域（diagram）——
+export type DiagramType = 'mindmap' | 'flowchart' | 'approval'
+
+export interface DiagramRequest {
+  source: string // 原始资料
+  type?: DiagramType // 缺省 → 服务端自动判定；手动覆盖用
+}
+
+export interface DiagramResult {
+  type: DiagramType
+  mermaid: string // 受限语法 Mermaid 源码
+  source: 'ai' | 'local' // 用于 UI 展示「AI 生成 / 本地模板」角标
+}
+
+export interface DiagramApi {
+  generate(req: DiagramRequest): Promise<IpcResult<DiagramResult>>
+}
+
 export interface WindowApi {
   app: AppApi
   settings: SettingsApi
@@ -306,4 +324,5 @@ export interface WindowApi {
   file: FileApi
   adblock: AdblockApi
   resume: ResumeApi
+  diagram: DiagramApi
 }
