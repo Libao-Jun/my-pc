@@ -56,6 +56,11 @@ interface Settings {
 ### `settings:set(patch: Partial<Settings>)` → `Settings`
 部分更新设置，返回更新后的完整设置。
 
+### `ai:test` → `{ latencyMs: number }`
+
+- 无参。对已配置的 AI 后端发最小探测，返回毫秒延迟。
+- 未配置（backend=none 或 key/baseUrl 缺省）→ `AI_NOT_CONFIGURED`；15s 超时 → `AI_TIMEOUT`。
+
 ## 3. 系统信息域（system）
 
 ```ts
@@ -188,7 +193,9 @@ interface DiagramResult { type: 'mindmap' | 'flowchart' | 'approval'; mermaid: s
 | `NOT_FOUND` | 资源不存在 | 端口无占用进程、简历未初始化、`adblock:restore` 无可用备份 |
 | `VALIDATION_ERROR` | 参数非法 | 端口号越界、域名格式错误 |
 | `PERMISSION_DENIED` | 权限不足 | hosts 写入无管理员权限 |
-| `AI_UNAVAILABLE` | 未配置 AI 后端 | 未配置 key 且无本地兜底命中 |
+| `AI_UNAVAILABLE` | AI 服务不可用 | 网络失败 / 响应格式异常 |
+| `AI_NOT_CONFIGURED` | 未配置 AI 后端 | 后端为 none 或 key/baseUrl 缺省 |
+| `AI_API_ERROR` | AI 远端返回非 2xx | HTTP 状态码非 200 |
 | `AI_TIMEOUT` | AI 调用超时 | 请求超时 |
 | `CANCELLED` | 已取消 | 用户取消扫描 |
 | `INTERNAL` | 其他内部错误 | 兜底 |
@@ -198,3 +205,4 @@ interface DiagramResult { type: 'mindmap' | 'flowchart' | 'approval'; mermaid: s
 - `src/shared/types.ts`：导出全部接口与 `IpcResult`、`ErrorCode`。
 - preload 用映射表把「通道名 → 参数 / 返回类型」固化成 `window.api` 的方法签名，杜绝字符串手误。
 - renderer 侧封装 `invoke<T>(channel, payload): Promise<IpcResult<T>>`，统一错误分支。
+- **AI 域**：`window.api.ai.test()` 唯一通道；`complete()` 是主进程内部接口，不经 IPC 暴露。

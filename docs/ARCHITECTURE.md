@@ -86,6 +86,8 @@ resume/diagram service → ai/ 适配层
 
 **背景**：简历 STAR 改写与「资料转图表」本质需要语义理解，本地纯规则效果有限。
 
+**状态**：已落地（阶段 4，2026-08-18）。实现见 `docs/modules/ai-integration.md`：`main/ai/adapter.ts` 提供 `complete(prompt, schema?)` + `test()`，未配置时抛 `AI_NOT_CONFIGURED`，由上层 service 走本地兜底。
+
 **决策**：
 - 引入 `main/ai/` 适配层，统一接口 `ai.complete(prompt, schema?)`。
 - 后端可配置：OpenAI 兼容接口（自定义 baseURL + key）与 Anthropic，存于 SQLite `settings` 表。
