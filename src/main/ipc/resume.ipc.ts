@@ -57,6 +57,12 @@ export function registerResumeIpc(): void {
     })
     if (result.canceled || !result.filePaths[0]) return null
     const raw = await readFile(result.filePaths[0], 'utf-8')
-    return validateResume(JSON.parse(raw))
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      throw new AppError('VALIDATION_ERROR', '导入的 JSON 文件格式无效')
+    }
+    return validateResume(parsed)
   })
 }

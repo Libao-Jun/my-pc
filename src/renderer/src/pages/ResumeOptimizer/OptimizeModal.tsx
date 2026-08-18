@@ -29,6 +29,8 @@ export function OptimizeModal({ section, initial, onConfirm, onClose }: Optimize
   const [source, setSource] = useState<'ai' | 'local' | null>(null)
 
   const run = async (): Promise<void> => {
+    setDraft(null)
+    setSource(null)
     if (!input.trim()) {
       toast('请先输入要优化的描述', 'error')
       return
@@ -50,6 +52,10 @@ export function OptimizeModal({ section, initial, onConfirm, onClose }: Optimize
     const text = [draft.situation, draft.task, draft.action, draft.result]
       .filter((s) => s && !s.startsWith('[待补充'))
       .join('。')
+    if (!text.trim()) {
+      toast('没有可回填的内容，请至少填写一段', 'error')
+      return
+    }
     onConfirm(text)
     onClose()
   }
@@ -89,7 +95,7 @@ export function OptimizeModal({ section, initial, onConfirm, onClose }: Optimize
             ))}
             <div className={styles.actions}>
               <button type="button" className={styles.primary} onClick={confirm}>确认回填</button>
-              <button type="button" onClick={() => void run()}>重新优化</button>
+              <button type="button" onClick={() => void run()} disabled={loading}>重新优化</button>
             </div>
           </>
         )}
