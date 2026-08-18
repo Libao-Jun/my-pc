@@ -1234,7 +1234,7 @@ import { useAdblockStore } from '@renderer/stores/adblockStore'
 import { BackupList } from './BackupList'
 import styles from './ApplyBar.module.css'
 
-export function ApplyBar(): JSX.Element {
+export function ApplyBar(): JSX.Element | null {
   const status = useAdblockStore((s) => s.status)
   const applying = useAdblockStore((s) => s.applying)
   const error = useAdblockStore((s) => s.error)
@@ -1638,7 +1638,7 @@ export function RuleEditor({ open, initial, onClose }: RuleEditorProps): JSX.Ele
     const name = software.trim()
     const d = domain.trim().toLowerCase()
     if (!name || !d) return // 服务端会二次校验并回显错误
-    const input = { software: name, domain: d, category }
+    const input = { software: name, domain: d, category, enabled: true } // addRule 入参为 Omit<AdblockRule,'id'>，需含 enabled
     // 组内「+ 规则」传入 { id: '', software, ... } 表示新增，仅真 id 走 updateRule
     const ok = initial?.id ? await updateRule(initial.id, input) : await addRule(input)
     if (ok) onClose()
