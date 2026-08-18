@@ -4,6 +4,7 @@ import type { PageId } from './components/layout/SideNav'
 import { ToastHost } from './components/Toast'
 import { AdBlockerPage } from './pages/AdBlocker/AdBlockerPage'
 import { FileManagerPage } from './pages/FileManager/FileManagerPage'
+import { ResumeOptimizerPage } from './pages/ResumeOptimizer/ResumeOptimizerPage'
 import { SystemOverviewPage } from './pages/SystemMonitor/SystemOverviewPage'
 import { SettingsPage } from './pages/Settings/SettingsPage'
 
@@ -19,6 +20,8 @@ export function App(): JSX.Element {
           <FileManagerPage />
         ) : page === 'adblock' ? (
           <AdBlockerPage />
+        ) : page === 'resume' ? (
+          <ResumeOptimizerPage />
         ) : (
           <SettingsPage />
         )}
