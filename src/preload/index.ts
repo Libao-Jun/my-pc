@@ -48,6 +48,9 @@ const api: WindowApi = {
     get: () => invoke<Settings>('settings:get'),
     set: (patch) => invoke<Settings>('settings:set', patch)
   },
+  ai: {
+    test: () => invoke<{ latencyMs: number }>('ai:test')
+  },
   system: {
     getOverview: () => invoke<SystemOverview>('system:getOverview'),
     getCpu: () => invoke<CpuInfo>('system:getCpu'),

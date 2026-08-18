@@ -173,6 +173,10 @@ export interface SettingsApi {
   set(patch: Partial<Settings>): Promise<IpcResult<Settings>>
 }
 
+export interface AiApi {
+  test(): Promise<IpcResult<{ latencyMs: number }>>
+}
+
 export interface SystemApi {
   getOverview(): Promise<IpcResult<SystemOverview>>
   getCpu(): Promise<IpcResult<CpuInfo>>
@@ -239,6 +243,7 @@ export interface AdblockApi {
 export interface WindowApi {
   app: AppApi
   settings: SettingsApi
+  ai: AiApi
   system: SystemApi
   file: FileApi
   adblock: AdblockApi
