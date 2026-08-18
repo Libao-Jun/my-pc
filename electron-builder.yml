@@ -1,0 +1,15 @@
+appId: com.mypc.app
+productName: my-pc
+directories:
+  output: release
+files:
+  - out/**
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
