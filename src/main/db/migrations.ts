@@ -17,6 +17,26 @@ const migrations: Migration[] = [
         );
       `)
     }
+  },
+  {
+    version: 2,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS files (
+          path       TEXT PRIMARY KEY,
+          name       TEXT NOT NULL,
+          size       INTEGER NOT NULL,
+          ext        TEXT NOT NULL,
+          category   TEXT NOT NULL,
+          birthtime  INTEGER NOT NULL,
+          mtime      INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_files_name ON files(name);
+        CREATE INDEX IF NOT EXISTS idx_files_category ON files(category);
+        CREATE INDEX IF NOT EXISTS idx_files_size ON files(size);
+        CREATE INDEX IF NOT EXISTS idx_files_birthtime ON files(birthtime);
+      `)
+    }
   }
 ]
 
