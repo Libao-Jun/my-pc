@@ -1,0 +1,68 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 860px;
+}
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.row input {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.row input:first-child { flex: 1; }
+.row input:nth-child(2) { width: 140px; }
+.row input:nth-child(3),
+.row input:nth-child(4) { width: 110px; }
+.bulletRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.bulletRow input {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.row button,
+.bulletRow button {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: 12px;
+}
+.add,
+.addSmall {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+.addSmall {
+  padding: var(--space-1) var(--space-2);
+  font-size: 12px;
+}

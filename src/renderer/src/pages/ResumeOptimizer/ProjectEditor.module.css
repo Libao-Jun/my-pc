@@ -1,0 +1,109 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 860px;
+}
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.row input {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.row input:first-child { flex: 1; }
+.row input:nth-child(2) { width: 130px; }
+.row input:nth-child(3),
+.row input:nth-child(4) { width: 100px; }
+.description {
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  resize: vertical;
+}
+.bulletRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+.bulletRow input {
+  flex: 1;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.row button,
+.bulletRow button {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: 12px;
+}
+.add,
+.addSmall {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+.addSmall {
+  padding: var(--space-1) var(--space-2);
+  font-size: 12px;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--color-surface);
+}
+.tag button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.tagInput {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  width: 140px;
+}
