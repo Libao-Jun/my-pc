@@ -1,5 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AppErrorShape, IpcResult, Settings, WindowApi } from '@shared/types'
+import type {
+  AppErrorShape,
+  CpuInfo,
+  DiskInfo,
+  IpcResult,
+  MemoryInfo,
+  NetworkInterface,
+  PortProcess,
+  ProcessInfo,
+  Settings,
+  SystemOverview,
+  WindowApi
+} from '@shared/types'
 
 async function invoke<T>(channel: string, payload?: unknown): Promise<IpcResult<T>> {
   try {
@@ -23,6 +35,15 @@ const api: WindowApi = {
   settings: {
     get: () => invoke<Settings>('settings:get'),
     set: (patch) => invoke<Settings>('settings:set', patch)
+  },
+  system: {
+    getOverview: () => invoke<SystemOverview>('system:getOverview'),
+    getCpu: () => invoke<CpuInfo>('system:getCpu'),
+    getMemory: () => invoke<MemoryInfo>('system:getMemory'),
+    getDisks: () => invoke<DiskInfo[]>('system:getDisks'),
+    getNetwork: () => invoke<NetworkInterface[]>('system:getNetwork'),
+    getProcesses: () => invoke<ProcessInfo[]>('system:getProcesses'),
+    getPortProcess: (port) => invoke<PortProcess | null>('system:getPortProcess', { port })
   }
 }
 

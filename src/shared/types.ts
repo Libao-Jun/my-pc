@@ -28,6 +28,71 @@ export interface Settings {
   largeFileThresholdMB: number
 }
 
+// —— 系统信息域（system）——
+export interface OsInfo {
+  platform: string
+  distro: string
+  release: string
+  arch: string
+}
+
+export interface CpuInfo {
+  model: string
+  cores: number
+  speedGHz: number
+  loadPercent: number
+  perCore: number[]
+}
+
+export interface MemoryInfo {
+  total: number
+  used: number
+  free: number
+  active: number
+  swapTotal: number
+  usedPercent: number
+}
+
+export interface DiskInfo {
+  device: string
+  mount: string
+  fsType: string
+  total: number
+  used: number
+  usedPercent: number
+}
+
+export interface NetworkInterface {
+  iface: string
+  ip4: string
+  mac: string
+  dhcp: boolean
+  subnet: string
+  isDefault: boolean
+  dns: string[]
+}
+
+export interface ProcessInfo {
+  pid: number
+  name: string
+  cpuPercent: number
+  memBytes: number
+  user?: string
+}
+
+export interface PortProcess {
+  port: number
+  pid: number
+  name: string
+  protocol: 'tcp' | 'udp'
+}
+
+export interface SystemOverview {
+  os: OsInfo
+  cpu: { model: string; cores: number; loadPercent: number }
+  memory: { total: number; used: number; free: number; usedPercent: number }
+}
+
 // window.api 的完整形状，preload 实现、renderer 消费
 export interface AppApi {
   getVersion(): Promise<IpcResult<string>>
@@ -39,7 +104,18 @@ export interface SettingsApi {
   set(patch: Partial<Settings>): Promise<IpcResult<Settings>>
 }
 
+export interface SystemApi {
+  getOverview(): Promise<IpcResult<SystemOverview>>
+  getCpu(): Promise<IpcResult<CpuInfo>>
+  getMemory(): Promise<IpcResult<MemoryInfo>>
+  getDisks(): Promise<IpcResult<DiskInfo[]>>
+  getNetwork(): Promise<IpcResult<NetworkInterface[]>>
+  getProcesses(): Promise<IpcResult<ProcessInfo[]>>
+  getPortProcess(port: number): Promise<IpcResult<PortProcess | null>>
+}
+
 export interface WindowApi {
   app: AppApi
   settings: SettingsApi
+  system: SystemApi
 }

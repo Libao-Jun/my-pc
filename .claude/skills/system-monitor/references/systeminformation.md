@@ -12,16 +12,10 @@
 | `si.osInfo()` | distro, release, codename, arch | 操作系统版本 |
 | `si.networkInterfaces()` | iface, ip4, mac, dhcp, subnet | 网卡 IP / MAC / DHCP |
 | `si.networkInterfaceDefault()` | 默认接口名 | 定位默认网卡 / 网关 |
-| `si.dns()` | DNS 服务器列表 | 当前 DNS |
+| `dns.getServers()`（`node:dns`） | DNS 服务器列表 | 当前 DNS（v5 已移除 `si.dns`，改用 Node 内置 `node:dns`） |
 | `si.processes()` | list[]: pid, name, mem | 进程列表 |
 | `si.processLoad(pid)` | cpu / mem 占用 | 单进程资源 |
 
 ## 端口 → 进程反查（Windows）
 
-`systeminformation` 不直接给「端口 → 进程」映射，用系统命令兜底：
-
-```
-netstat -ano | findstr :8080
-```
-
-输出最后一列为 PID，再用 `si.processes()` 或 `tasklist /FI "PID eq <pid>"` 关联到进程名。
+`systeminformation` 不直接给「端口 → 进程」映射，用系统命令兜底：执行 `netstat -ano` 后在 JS 内解析，只匹配**本机监听地址**（`local` 列）末尾的 `:port`，避免误命中「远端地址恰好为该端口」的连接；最后一列为 PID，再用 `si.processes()` 关联进程名。端口参数需 `Number.isInteger` 且 1–65535 校验，防注入。
