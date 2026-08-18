@@ -61,10 +61,11 @@ async function scanRoot(
   minSizeBytes: number,
   emit: (p: ScanProgress) => void,
   controller: { cancelled: boolean }
-): Promise<{ files: FileEntry[]; skipped: number }> {
+): Promise<{ files: FileEntry[]; skipped: number; rootOk: boolean }> {
   const files: FileEntry[] = []
   let batch: FileEntry[] = []
   let skipped = 0
+  let rootOk = true
 
   const flush = (): void => {
     if (batch.length > 0) {
@@ -80,6 +81,7 @@ async function scanRoot(
       entries = await readdir(dir, { withFileTypes: true })
     } catch {
       skipped++ // EACCES / EPERM / 目录已消失
+      if (dir === root) rootOk = false // 根目录不可读：调用方据此跳过 pruneRoot，避免误删整库索引
       return
     }
     emit({ current: files.length + batch.length, total: 0, currentPath: dir })
@@ -121,7 +123,7 @@ async function scanRoot(
 
   await walk(root)
   flush()
-  return { files, skipped }
+  return { files, skipped, rootOk }
 }
 
 export async function scan(
@@ -141,24 +143,23 @@ export async function scan(
   const controller = { cancelled: false }
   activeScan = controller
   const started = Date.now()
-  const allFiles: FileEntry[] = []
+  let totalSize = 0
   let skippedTotal = 0
 
   try {
     for (const root of options.roots) {
       if (controller.cancelled) throw new AppError('CANCELLED', '扫描已取消')
-      const { files, skipped } = await scanRoot(root, minSizeBytes, emit, controller)
-      allFiles.push(...files)
+      const { files, skipped, rootOk } = await scanRoot(root, minSizeBytes, emit, controller)
+      totalSize += files.reduce((acc, f) => acc + f.size, 0)
       skippedTotal += skipped
-      // 仅完整扫描结束才清理失效索引（取消则跳过）
-      fileRepository.pruneRoot(root, new Set(files.map((f) => f.path)))
+      // 仅完整扫描结束才清理失效索引（取消则跳过）；根目录读取失败则跳过清理，避免误删整库
+      if (rootOk) fileRepository.pruneRoot(root, new Set(files.map((f) => f.path)))
     }
   } finally {
     activeScan = null
   }
 
-  const totalSize = allFiles.reduce((acc, f) => acc + f.size, 0)
-  return { files: allFiles, totalSize, skipped: skippedTotal, durationMs: Date.now() - started }
+  return { totalSize, skipped: skippedTotal, durationMs: Date.now() - started }
 }
 
 export function search(query: SearchQuery): Promise<FileSearchResult> {

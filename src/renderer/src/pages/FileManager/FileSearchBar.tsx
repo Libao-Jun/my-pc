@@ -34,8 +34,18 @@ export function FileSearchBar(): JSX.Element {
   ): SearchQuery => ({
     keyword: (patch.keyword ?? keyword).trim() || undefined,
     category: (patch.category ?? category) || undefined,
-    minSizeMB: patch.minSizeMB ?? (minMB ? Number(minMB) : undefined),
-    maxSizeMB: patch.maxSizeMB ?? (maxMB ? Number(maxMB) : undefined),
+    // 用 hasOwnProperty 区分「显式清空（undefined）」与「未提供」，避免清空输入框时
+    // 沿用上一次的旧值（stale closure），导致清空后搜索结果仍被旧大小范围过滤
+    minSizeMB: Object.prototype.hasOwnProperty.call(patch, 'minSizeMB')
+      ? patch.minSizeMB
+      : minMB
+        ? Number(minMB)
+        : undefined,
+    maxSizeMB: Object.prototype.hasOwnProperty.call(patch, 'maxSizeMB')
+      ? patch.maxSizeMB
+      : maxMB
+        ? Number(maxMB)
+        : undefined,
     page: nextPage,
     pageSize: PAGE_SIZE
   })

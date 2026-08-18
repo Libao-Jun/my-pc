@@ -118,7 +118,6 @@ export interface ScanProgress {
 }
 
 export interface ScanResult {
-  files: FileEntry[]
   totalSize: number
   skipped: number // 权限错误等跳过的目录数
   durationMs: number

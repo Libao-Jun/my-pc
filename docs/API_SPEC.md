@@ -95,7 +95,7 @@ interface FileEntry {
   category: string; birthtime: number; mtime: number;
 }
 interface ScanProgress { current: number; total: number; currentPath: string } // total: 0 = 不定进度（扫描前无法预知总数）
-interface ScanResult { files: FileEntry[]; totalSize: number; skipped: number; durationMs: number }
+interface ScanResult { totalSize: number; skipped: number; durationMs: number }
 interface FileStats { byCategory: Record<string, { count: number; size: number }>; totalFiles: number; totalSize: number }
 interface SearchQuery { keyword?: string; category?: string; minSizeMB?: number; maxSizeMB?: number; page: number; pageSize: number }
 interface FileSearchResult { items: FileEntry[]; total: number }
