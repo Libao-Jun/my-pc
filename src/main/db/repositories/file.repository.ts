@@ -1,4 +1,5 @@
 import type { FileCategory, FileEntry, FileSearchResult, FileStats, SearchQuery } from '@shared/types'
+import path from 'node:path'
 import { getDb } from '../index'
 
 const MB = 1024 * 1024
@@ -105,7 +106,7 @@ export const fileRepository = {
 
   pruneRoot(root: string, seenPaths: Set<string>): void {
     const db = getDb()
-    const sep = root.endsWith('\\') || root.endsWith('/') ? '' : '/'
+    const sep = root.endsWith('\\') || root.endsWith('/') ? '' : path.sep
     const prefix = `${root}${sep}`
     const existing = db
       .prepare("SELECT path FROM files WHERE path LIKE ? ESCAPE '\\'")
