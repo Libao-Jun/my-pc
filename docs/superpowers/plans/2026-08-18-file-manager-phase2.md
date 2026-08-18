@@ -164,6 +164,7 @@ git commit -m "feat(file): 大文件域共享契约类型 + FileApi"
 - [ ] **Step 2: 创建 `file.repository.ts`**
 
 ```ts
+import path from 'node:path'
 import type { FileCategory, FileEntry, FileSearchResult, FileStats, SearchQuery } from '@shared/types'
 import { getDb } from '../index'
 
@@ -271,7 +272,7 @@ export const fileRepository = {
 
   pruneRoot(root: string, seenPaths: Set<string>): void {
     const db = getDb()
-    const sep = root.endsWith('\\') || root.endsWith('/') ? '' : '/'
+    const sep = root.endsWith('\\') || root.endsWith('/') ? '' : path.sep
     const prefix = `${root}${sep}`
     const existing = db
       .prepare("SELECT path FROM files WHERE path LIKE ? ESCAPE '\\'")
@@ -293,7 +294,7 @@ export const fileRepository = {
 }
 ```
 
-> 说明：`pruneRoot` 只在扫描完整结束时调用（见 Task 3），`seenPaths` 为本轮该根目录下所有命中阈值文件的路径集合。`ESCAPE '\'` 使 `\`/`%`/`_` 都成为字面量（由 `escapeLike` 转义），路径前缀中的反斜杠分隔符也被正确转义，故 `${prefix}%` 只选中该根下的已索引路径、不会误匹配同级目录。
+> 说明：`pruneRoot` 只在扫描完整结束时调用（见 Task 3），`seenPaths` 为本轮该根目录下所有命中阈值文件的路径集合。`ESCAPE '\'` 使 `\`/`%`/`_` 都成为字面量（由 `escapeLike` 转义），路径前缀中的反斜杠分隔符也被正确转义，故 `${prefix}%` 只选中该根下的已索引路径、不会误匹配同级目录。分隔符统一用 `path.sep`（平台感知，Windows 为 `\`），与 Task 3 扫描用 `path.join()` 产出的反斜杠路径保持一致。
 
 - [ ] **Step 3: typecheck 验证**
 
