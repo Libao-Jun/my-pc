@@ -32,7 +32,7 @@
 
 ## 3. IPC 接口
 
-见 `API_SPEC.md` §4：`file:scan`（长任务，事件 `file:scan:progress` / `file:scan:cancel`）、`file:search`、`file:getStats`、`file:getByCategory`。
+见 `API_SPEC.md` §4：`file:scan`（长任务，事件 `file:scan:progress` / `file:scan:cancel`）、`file:search`（返回 `FileSearchResult`）、`file:getStats`、`file:getScanPresets`、`file:pickDirectory`。分类筛选由 `file:search` 的 `category` 覆盖，`getByCategory` 不实现。
 
 ## 4. 数据
 
@@ -49,6 +49,9 @@
 - 大结果集分页，表格用虚拟滚动或后端分页（`LIMIT/OFFSET`）。
 - 阈值可配置（`settings.largeFileThresholdMB`，默认 100MB）。
 - 渲染层只拿元数据，不做文件 IO / 删除（删除列为后续增强，需确认后实现）。
+- 重扫清理失效索引：每扫完一个根目录，删除该根下本次未出现的已索引路径（仅完整扫描结束执行，取消则跳过）。
+- 最小侧边导航：阶段 2 只保留「系统信息 / 大文件」两个入口。
+- 快捷目录入口：`file:getScanPresets` 返回用户主目录与盘符，`ScanControl` 渲染「用户目录 / 盘符 / 浏览…」一键添加扫描目录。
 
 ## 7. 验收标准
 

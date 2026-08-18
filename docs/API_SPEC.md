@@ -89,23 +89,27 @@ interface PortProcess { port: number; pid: number; name: string; protocol: 'tcp'
 ## 4. 大文件域（file）
 
 ```ts
-interface ScanOptions { roots: string[]; minSizeMB: number; categories?: string[] }
+interface ScanOptions { roots: string[]; minSizeMB: number }
 interface FileEntry {
   path: string; name: string; size: number; ext: string;
   category: string; birthtime: number; mtime: number;
 }
-interface ScanProgress { current: number; total: number; currentPath: string }
+interface ScanProgress { current: number; total: number; currentPath: string } // total: 0 = 不定进度（扫描前无法预知总数）
 interface ScanResult { files: FileEntry[]; totalSize: number; skipped: number; durationMs: number }
 interface FileStats { byCategory: Record<string, { count: number; size: number }>; totalFiles: number; totalSize: number }
 interface SearchQuery { keyword?: string; category?: string; minSizeMB?: number; maxSizeMB?: number; page: number; pageSize: number }
+interface FileSearchResult { items: FileEntry[]; total: number }
+interface ScanPresets { home: string; drives: string[] } // home 用户主目录；drives 盘符挂载点
+// getByCategory 不实现：分类筛选由 file:search 的 category 覆盖
 ```
 
 | 通道 | 参数 | 返回 |
 |------|------|------|
 | `file:scan` | `ScanOptions` | `ScanResult` |
-| `file:search` | `SearchQuery` | `FileEntry[]` |
+| `file:search` | `SearchQuery` | `FileSearchResult` |
 | `file:getStats` | — | `FileStats` |
-| `file:getByCategory` | `{ category: string; page: number; pageSize: number }` | `FileEntry[]` |
+| `file:getScanPresets` | — | `ScanPresets` |
+| `file:pickDirectory` | — | `string \| null` |
 
 事件：`file:scan:progress` → `ScanProgress`；`file:scan:cancel`（无参，取消当前扫描）。
 
