@@ -85,10 +85,20 @@ my-pc/
 ## 打包发布
 
 ```bash
-npm run dist
+npm run dist   # = electron-vite build && electron-builder
 ```
 
-产物：`release/my-pc Setup 0.1.0.exe`（NSIS x64，约 84 MB，含最终构建）。安装时可选安装目录；`electron-builder.yml` 可调整 `appId` / `productName` 等。
+产物：`release/my-pc Setup <版本>.exe`（NSIS x64，约 84 MB，含最终构建）。安装为向导式、可选手动选择安装目录（按当前用户安装）。
+
+操作步骤（详细版见 `docs/PACKAGING.md`）：
+
+```bash
+npm run typecheck                  # 1. 类型检查（验证门）
+npm run build && npm run start     # 2. 编译并预览，确认无误
+npm run dist                       # 3. 打包安装包到 release/
+```
+
+产物名中的版本号来自 `package.json` 的 `version` 字段；`electron-builder.yml` 可调整 `appId` / `productName` 等打包参数。
 
 ## AI 后端配置（可选）
 
@@ -109,6 +119,7 @@ npm run dist
 | `docs/DATABASE.md` | SQLite 表结构与迁移 |
 | `docs/COMPONENT_LIBRARY.md` | React 组件清单与 Props |
 | `docs/CODING_STANDARDS.md` | 编码标准、命名、Git 工作流 |
+| `docs/PACKAGING.md` | 安装包生成原理、完整打包步骤、常见问题 |
 | `docs/modules/*.md` | 6 个功能模块的详细设计（含 AI 集成层） |
 
 ## License

@@ -1,6 +1,6 @@
 {
   "name": "my-pc",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "基于 Electron 的桌面应用，管理电脑基本信息、进程、网络、大文件等",
   "main": "./out/main/index.js",
   "author": "my-pc",
