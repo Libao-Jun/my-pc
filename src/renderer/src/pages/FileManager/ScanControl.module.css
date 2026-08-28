@@ -27,6 +27,17 @@
   color: var(--color-text-muted);
 }
 
+/* 扫描进度文本：撑满剩余宽度但绝不换行/溢出，路径再长也只显示省略号，保证行高稳定 */
+.progressText {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
 .roots {
   display: flex;
   flex-wrap: wrap;

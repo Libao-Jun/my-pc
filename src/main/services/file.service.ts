@@ -45,6 +45,17 @@ const SKIP_DIR_NAMES = new Set([
 
 const BATCH_SIZE = 200
 
+// 盘符挂载点 / 目录根统一成「以分隔符结尾的绝对路径」。
+// Windows 下 si.fsSize() 的 mount 形如 'C:'（无尾部分隔符），它是「驱动器相对路径」：
+// readdir('C:') 解析到该盘的「当前目录」而非盘根，当前目录随用户之前所在目录变化，
+// 导致扫描错位或空结果（表现为选择 D/E 盘后点开始扫描却无执行效果）。
+function normalizeScanRoot(root: string): string {
+  const drive = /^([A-Za-z]):[\\/]?$/.exec(root.trim())
+  if (drive) return `${drive[1]}:${path.sep}`
+  const trimmed = root.replace(/[\\/]+$/, '')
+  return trimmed ? `${trimmed}${path.sep}` : root
+}
+
 function categoryForExt(ext: string): FileCategory {
   return CATEGORY_BY_EXT[ext] ?? 'other'
 }
@@ -142,12 +153,14 @@ export async function scan(
   const minSizeBytes = options.minSizeMB * 1024 * 1024
   const controller = { cancelled: false }
   activeScan = controller
+  // 统一根目录为以分隔符结尾的绝对路径，保证 readdir 落在根目录（盘符挂载点尤其必要）
+  const roots = options.roots.map(normalizeScanRoot).filter(Boolean)
   const started = Date.now()
   let totalSize = 0
   let skippedTotal = 0
 
   try {
-    for (const root of options.roots) {
+    for (const root of roots) {
       if (controller.cancelled) throw new AppError('CANCELLED', '扫描已取消')
       const { files, skipped, rootOk } = await scanRoot(root, minSizeBytes, emit, controller)
       totalSize += files.reduce((acc, f) => acc + f.size, 0)
@@ -171,8 +184,7 @@ export function getStats(): Promise<FileStats> {
 }
 
 export async function getScanPresets(): Promise<ScanPresets> {
-  const home = os.homedir()
   const disks = await getDisks()
-  const drives = [...new Set(disks.map((d) => d.mount).filter(Boolean))]
-  return { home, drives }
+  const drives = [...new Set(disks.map((d) => normalizeScanRoot(d.mount)).filter(Boolean))]
+  return { home: normalizeScanRoot(os.homedir()), drives }
 }

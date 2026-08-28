@@ -31,7 +31,15 @@ export const useFileStore = create<FileState>((set, get) => ({
   startScan: async (roots, minSizeMB) => {
     cancelRequested = false // 新一轮扫描重置取消标志
     set({ scanning: true, error: null, progress: null })
-    const unsub = window.api.file.onProgress((progress) => set({ progress }))
+    // 主进程按「每个目录」推送进度，频率很高；限流到 ~100ms 一次，降低渲染层重绘频率、减少抖动
+    let lastEmitAt = 0
+    const unsub = window.api.file.onProgress((progress) => {
+      const now = Date.now()
+      if (now - lastEmitAt >= 100) {
+        lastEmitAt = now
+        set({ progress })
+      }
+    })
     try {
       const r = await window.api.file.scan({ roots, minSizeMB })
       if (r.ok) {

@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react'
 import { useFileStore } from '@renderer/stores/fileStore'
 import styles from './ScanControl.module.css'
 
+// 遍历目录路径可能很长：只展示末尾一段（省略头部），配合 CSS ellipsis 稳定行宽，避免布局抖动
+function shortenPath(p: string, max = 56): string {
+  if (!p) return ''
+  return p.length <= max ? p : `…${p.slice(-(max - 1))}`
+}
+
 export function ScanControl(): JSX.Element {
   const scanning = useFileStore((s) => s.scanning)
   const progress = useFileStore((s) => s.progress)
@@ -97,9 +103,12 @@ export function ScanControl(): JSX.Element {
           <button type="button" className={styles.cancel} onClick={cancelScan}>
             取消扫描
           </button>
-          <span className={styles.muted}>
+          <span
+            className={styles.progressText}
+            title={progress ? progress.currentPath : undefined}
+          >
             {progress
-              ? `已扫描 ${progress.current} 个文件 · ${progress.currentPath}`
+              ? `已扫描 ${progress.current} 个文件 · ${shortenPath(progress.currentPath)}`
               : '扫描中…'}
           </span>
         </div>
