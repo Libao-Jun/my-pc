@@ -10,13 +10,14 @@
 
 ## Global Constraints
 
-- 纯文档 + `.claude/` 配置交付；**不改动** `src/`（Electron 代码）、`.claude/skills/skill-factory/`、既有 28 个 skill 的内容。
+- 纯文档 + `.claude/` 配置交付；**不改动** `src/`（Electron 代码）、`.claude/skills/skill-factory/`、既有 28 个 skill 的内容（位置与内容均不动）。
+- **技能库根 = `docs/skills/`**（用户需求变更：skills 不入传统 `.agents`/`.claude`，作为文档资产放 docs 下）。既有 28 个仍留 `.claude/skills/`（Claude 原生发现，curator 不扫描）；skill-curator 自身迁入 `docs/skills/skill-curator/`。触发条件不变。
 - 通用提示词**工具无关**：正文不出现 Claude Code 专属操作词（工具名仅允许在「适配说明」小节出现）。
 - Hook 脚本**零依赖**（仅 Node 内置 API）；Node 22。
 - **非破坏性**：任何合并/精简/归档都在 `_archive/` 保留原文；物理删除仅限归档满 30 天且无引用。**脚本内不含任何删除逻辑**。
 - 中文提示/文案。
 - `.curator-state.json` schema：`{ "lastFullReorg": string|null, "lastCheck": string }`（ISO 时间；初始 `lastFullReorg: null`，文案显示「从未」）。
-- Hook 扫描排除 `_archive/` 与 `skill-curator` 自身。
+- Hook 扫描排除 `_archive/`；skill-curator 自身纳入扫描（docs 库初始仅含自身时，摘要如实报「1 个 SKILL.md」，而非 0 个）。
 - commit message 必须以 `Co-Authored-By: Claude <noreply@anthropic.com>` 结尾。
 
 ---
@@ -591,6 +592,337 @@ Expected: `git status --short` 为空或仅含本计划交付物文件；`git lo
 
 ---
 
+### Task 6: 迁移技能库至 `docs/skills/` + 最终评审修复（I1/I2/M3/M5）
+
+**触发源：** 用户需求变更（skills 不入传统 `.agents`/`.claude`，改放 `docs/skills/`，触发条件不变；AskUserQuestion 定案「仅新库迁移」）＋ 最终全分支评审（opus）裁决 "With fixes"。
+
+**Files:**
+- Move: `.claude/skills/skill-curator/` → `docs/skills/skill-curator/`（`git mv`）
+- Modify: `docs/skills/skill-curator/scripts/curator-check.mjs`（默认根改 `docs/skills` + 去样板化 I1 + I/O 防护 I2 + 空 name 防护 M3 + 自身纳入扫描）
+- Modify: `docs/skills/skill-curator/SKILL.md`（路径更新）
+- Modify: `.claude/settings.json`（Hook 命令路径）
+- Modify: `.claude/CLAUDE.md`（归档/报告路径）
+- Modify: `.gitignore`（状态文件路径 → `docs/skills/`，兼容旧根）
+- Modify: `docs/prompts/skill-curator-prompt.md`（M5 措辞 + SKILL_ROOT 默认 + §2 检测规则措辞）
+- Modify: `docs/superpowers/specs/2026-08-30-skill-curator-design.md`（同步路径与检测规则）
+
+**Interfaces:**
+- Consumes: Task 1–5 产物（提示词、脚本、SKILL.md、CLAUDE.md、settings.json、.gitignore、spec）。
+- Produces: 迁移后位于 `docs/skills/` 的完整实例；SessionStart Hook 仍每会话自动触发（触发条件不变）。
+
+- [ ] **Step 1: `git mv` 目录**
+
+Run:
+```bash
+cd "E:/monorepo/my-pc"
+mkdir -p docs/skills
+git mv .claude/skills/skill-curator docs/skills/skill-curator
+```
+Expected: `.claude/skills/skill-curator/` 消失；`docs/skills/skill-curator/{SKILL.md,scripts/curator-check.mjs}` 就位（git status 显示 rename）。
+
+- [ ] **Step 2: 重写脚本（含 4 项修复）**
+
+将 `docs/skills/skill-curator/scripts/curator-check.mjs` 整文件内容**逐字**替换为：
+
+```js
+#!/usr/bin/env node
+// skill-curator 检测脚本：扫描 SKILL_ROOT/*/SKILL.md，输出检测摘要并更新状态。
+// 零依赖（Node 22 内置 fs/path）。作为 SessionStart Hook 挂载；亦可手动运行。
+// 用法: node docs/skills/skill-curator/scripts/curator-check.mjs [SKILL_ROOT]
+'use strict'
+
+import fs from 'node:fs'
+import path from 'node:path'
+
+const SKILL_ROOT = process.argv[2] ?? 'docs/skills'
+const STATE_FILE = path.join(SKILL_ROOT, '.curator-state.json')
+const MAX_SIZE_BYTES = 8 * 1024
+const STALE_DAYS = 30
+const MAX_DUPS = 5 // 重复候选最多展示条数（防样板噪音刷屏）
+const BOILERPLATE_FREQ = 3 // 共享短语出现在 ≥3 个 skill 视为样板，忽略
+const FUNCTION_WORDS = new Set(
+  'the a an this that these those when whenever should use uses used using user wants want wanted need needs needed ask asks asked for of to from with by or and in on at as is are was were be been it you your their we they if then also can could will would shall may might must not no nor all any each every into over under than so about which who whom what where how why both either neither until while because'.split(' ')
+)
+
+function readState() {
+  try {
+    const data = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))
+    return {
+      lastFullReorg: typeof data.lastFullReorg === 'string' ? data.lastFullReorg : null,
+      lastCheck: typeof data.lastCheck === 'string' ? data.lastCheck : null
+    }
+  } catch {
+    return { lastFullReorg: null, lastCheck: null }
+  }
+}
+
+function writeState(state) {
+  fs.mkdirSync(SKILL_ROOT, { recursive: true })
+  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + '\n', 'utf8')
+}
+
+function parseFrontmatter(text) {
+  // 兼容 CRLF 行尾（部分 skill 文件为 Windows 换行），统一为 \n 再解析
+  const m = /^---\n([\s\S]*?)\n---/.exec(text.replace(/\r/g, ''))
+  if (!m) return { name: '', description: '' }
+  let name = ''
+  let description = ''
+  let descPending = false
+  for (const line of m[1].split('\n')) {
+    const n = /^name:\s*["']?([^"'\n]+)["']?\s*$/.exec(line)
+    if (n) name = n[1].trim()
+    if (descPending) {
+      if (/^\s/.test(line)) {
+        description = description ? `${description} ${line.trim()}` : line.trim()
+        continue
+      }
+      descPending = false
+    }
+    const d = /^description:\s*(.*)$/.exec(line)
+    if (d) {
+      description = d[1].trim().replace(/^["']|["']$/g, '')
+      // YAML 块标量（description: 后跟 | / |- / > 等或空值）：后续缩进行均为描述内容
+      if (description === '' || /^[|>][-+]?$/.test(description)) {
+        description = ''
+        descPending = true
+      }
+    }
+  }
+  return { name, description }
+}
+
+function levenshtein(a, b) {
+  const m = a.length
+  const n = b.length
+  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...new Array(n).fill(0)])
+  for (let j = 1; j <= n; j++) dp[0][j] = j
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    }
+  }
+  return dp[m][n]
+}
+
+// 提取 description 的全部候选短语：≥6 中文字符串 + ≥12 字符英文词序列（小写归一）
+function extractPhrases(desc) {
+  const text = desc.toLowerCase()
+  const out = []
+  for (const run of text.replace(/[^\u4e00-\u9fff]/g, ' ').split(' ').filter((s) => s.length >= 6)) {
+    out.push(run)
+  }
+  const toks = text.replace(/[^a-z0-9 -]/g, ' ').split(' ').filter((t) => t.length > 0)
+  for (let i = 0; i < toks.length; i++) {
+    let seq = ''
+    for (let j = i; j < toks.length; j++) {
+      seq = seq ? `${seq} ${toks[j]}` : toks[j]
+      if (seq.length >= 12) out.push(seq)
+    }
+  }
+  return out
+}
+
+// 全局短语频率：某短语被几个 skill 的 description 共享（跨库样板检测）
+function phraseFrequency(skills) {
+  const freq = new Map()
+  for (const s of skills) {
+    const seen = new Set(extractPhrases(s.description))
+    for (const p of seen) freq.set(p, (freq.get(p) ?? 0) + 1)
+  }
+  return freq
+}
+
+// 样板判定：全局出现 ≥3 个 skill，或短语内无内容词（全为功能词）。纯中文短语仅凭频率判样板。
+function isBoilerplate(phrase, freq) {
+  if ((freq.get(phrase) ?? 0) >= BOILERPLATE_FREQ) return true
+  const words = phrase.split(/[^a-z0-9]+/).filter(Boolean)
+  if (words.length === 0) return false
+  return !words.some((w) => w.length >= 4 && !FUNCTION_WORDS.has(w))
+}
+
+// 返回重复候选描述；不重复则 null。共享短语取最长匹配（优先特指核心，而非功能词前缀）
+function dupInfo(a, b, freq) {
+  if (a.name && b.name && levenshtein(a.name, b.name) <= 2) return 'name 近似'
+  const pa = new Set(extractPhrases(a.description))
+  const pb = [...new Set(extractPhrases(b.description))]
+  let best = null
+  for (const p of pb) {
+    if (pa.has(p) && !isBoilerplate(p, freq)) {
+      if (!best || p.length > best.length) best = p
+    }
+  }
+  if (best) return `desc 含 "${best}"`
+  return null
+}
+
+function main() {
+  if (!fs.existsSync(SKILL_ROOT) || !fs.statSync(SKILL_ROOT).isDirectory()) {
+    console.error(`[skill-curator] SKILL_ROOT 不存在或不是目录: ${SKILL_ROOT}`)
+    process.exit(1)
+  }
+  const state = readState()
+  const dirs = fs.readdirSync(SKILL_ROOT, { withFileTypes: true })
+    .filter((d) => d.name !== '_archive')
+    .map((d) => d.name)
+    .filter((name) => {
+      // 悬空符号链接/无权限：try/catch 跳过，不让 SessionStart Hook 崩
+      try {
+        return fs.statSync(path.join(SKILL_ROOT, name)).isDirectory()
+      } catch {
+        return false
+      }
+    })
+    .sort()
+
+  const skills = []
+  let totalBytes = 0
+  for (const dir of dirs) {
+    const file = path.join(SKILL_ROOT, dir, 'SKILL.md')
+    let text
+    try {
+      text = fs.readFileSync(file, 'utf8')
+    } catch {
+      continue // 不可读（权限/悬空链接）：跳过
+    }
+    const { name, description } = parseFrontmatter(text)
+    const bytes = Buffer.byteLength(text, 'utf8')
+    totalBytes += bytes
+    skills.push({ dir, name, description, bytes })
+  }
+
+  const now = Date.now()
+  try {
+    writeState({ lastFullReorg: state.lastFullReorg, lastCheck: new Date(now).toISOString() })
+  } catch {
+    // 状态写入失败不阻塞检测摘要
+  }
+
+  const big = skills.filter((s) => s.bytes > MAX_SIZE_BYTES).sort((a, b) => b.bytes - a.bytes).slice(0, 3)
+  const freq = phraseFrequency(skills)
+  const dups = []
+  outer:
+  for (let i = 0; i < skills.length; i++) {
+    for (let j = i + 1; j < skills.length; j++) {
+      const info = dupInfo(skills[i], skills[j], freq)
+      if (info) {
+        dups.push(`${skills[i].dir}↔${skills[j].dir}（${info}）`)
+        if (dups.length >= MAX_DUPS) break outer
+      }
+    }
+  }
+  const missing = skills.filter((s) => s.description.length < 8).map((s) => s.dir)
+
+  let lastReorgText = '从未'
+  let staleNote = ''
+  if (state.lastFullReorg) {
+    const days = Math.floor((now - new Date(state.lastFullReorg).getTime()) / 86400000)
+    lastReorgText = `${Math.max(0, days)} 天前`
+    if (days > STALE_DAYS) staleNote = '已超 30 天未全盘重梳理'
+  }
+
+  const kb = (totalBytes / 1024).toFixed(1)
+  const header = `【skill-curator 检测】${skills.length} 个 SKILL.md · 总大小 ${kb} KB · 距上次全盘重梳理 ${lastReorgText}`
+
+  const advices = []
+  for (const d of dups) advices.push(`建议合并 ${d.split('（')[0]}`)
+  for (const mm of missing) advices.push(`建议补充 description: ${mm}`)
+  if (staleNote) advices.push('建议全盘重梳理')
+
+  if (advices.length === 0 && big.length === 0) {
+    console.log(`${header} · 建议: 无需处理`)
+    return
+  }
+  const parts = [header]
+  if (big.length) parts.push(`- 最大: ${big.map((s) => `${s.dir} (${(s.bytes / 1024).toFixed(1)} KB)`).join('、')}`)
+  if (dups.length) parts.push(`- 重复候选: ${dups.join('、')}`)
+  if (missing.length) parts.push(`- 缺 description: ${missing.join('、')}`)
+  parts.push(`- 建议: ${advices.join('；')}`)
+  console.log(parts.join('\n'))
+}
+
+main()
+```
+
+修复说明（对照旧版 416f675 逐字脚本）：
+1. **I1 去样板化**：新增 `extractPhrases`（小写归一 + 枚举全部候选短语）/ `phraseFrequency`（全局频率）/ `isBoilerplate`（≥3 个 skill 共享 或 无内容词）/ `dupInfo` 取最长共享短语；主循环加 `MAX_DUPS = 5` 上限。效果：真实库重复候选 50 → ~13（评审已验证）。
+2. **I2 I/O 防护**：dirs 过滤与逐文件 `readFileSync` 均 try/catch 跳过；`writeState` try/catch 不阻塞摘要。
+3. **M3 空 name 防护**：`dupInfo` 加 `a.name && b.name &&`。
+4. **自身纳入扫描**：移除 `d.name !== 'skill-curator'`（docs 库初始仅自身时摘要报「1 个 SKILL.md」）。
+
+- [ ] **Step 3: 更新 SKILL.md 路径（docs/skills）**
+
+`docs/skills/skill-curator/SKILL.md` 做如下替换：
+1. 「你是本仓库 `.claude/skills/` 技能库的维护者」→「你是本仓库 `docs/skills/` 技能库的维护者」
+2. 本仓库路径四行 → `docs/skills/` 对应路径（`SKILL_ROOT` = `docs/skills/`；状态 = `docs/skills/.curator-state.json`；报告 = `docs/skills/CURATOR_REPORT.md`；归档 = `docs/skills/_archive/`）
+3. 触发检查命令 → `node docs/skills/skill-curator/scripts/curator-check.mjs`
+4. 注意节「自身也是 `.claude/skills/` 下的一个 skill，接受自身治理（Hook 扫描已排除 `skill-curator` 与 `_archive/`）」→「自身也是 `docs/skills/` 下的一个 skill，接受自身治理（Hook 扫描已纳入自身、仅排除 `_archive/`）。既有 28 个 skill 仍位于 `.claude/skills/`（Claude 原生发现），不属于本库扫描范围。」
+
+- [ ] **Step 4: 更新 settings.json / CLAUDE.md / .gitignore**
+
+- `.claude/settings.json` 的 `hooks.SessionStart[0].hooks[0].command` → `node docs/skills/skill-curator/scripts/curator-check.mjs`
+- `.claude/CLAUDE.md` 末行 → 「维护动作遵循非破坏性约定：合并/归档前原文移入 `docs/skills/_archive/`，每次重梳理追加 `docs/skills/CURATOR_REPORT.md`。」
+- `.gitignore` 末尾 → 
+```gitignore
+# skill-curator 运行时状态
+docs/skills/.curator-state.json
+# 兼容：手动/验证对旧库根 .claude/skills 运行检测产生的状态
+.claude/skills/.curator-state.json
+```
+
+- [ ] **Step 5: 更新提示词 `docs/prompts/skill-curator-prompt.md`**
+
+1. 第 3 行 blockquote（M5 措辞，去工具名）→
+`> 用途：将本提示词粘贴进任意 AI 编程助手的指令文件，即可让该助手以「Skill Curator」身份常驻维护一个可复用技能库（各工具的具体粘贴位置见文末「适配说明」）。`
+2. 第 4 行（SKILL_ROOT 默认）→
+`> 目标技能库根目录记为 \`SKILL_ROOT\`（默认 \`docs/skills/\`，作为文档资产存放、可读可审计；跨工具/跨仓库可替换为其他目录）。\`SKILL_ROOT\` 下每个技能为一个子目录，内含 \`SKILL.md\`，frontmatter 含 \`name\` 与 \`description\`。`
+3. §2 重复 bullet → 「`name` 近似、`description` 高度相似（同时出现**非样板**核心短语——共享短语被 ≥3 个技能共用即视为样板）的技能配对。」
+
+- [ ] **Step 6: 同步 spec `docs/superpowers/specs/2026-08-30-skill-curator-design.md`**
+
+- §4 架构图：`skill-curator/` 路径 `.claude/skills/` → `docs/skills/`（图内两处）。
+- §5：SKILL_ROOT 默认 `.claude/skills/` → `docs/skills/`。
+- §6：「扫描」排除项改为仅 `_archive/`（自身纳入扫描）；脚本路径 `.claude/skills/skill-curator/scripts/curator-check.mjs` → `docs/skills/...`；detection 规则「重复候选」追加去样板化（共享短语被 ≥3 个 skill 共用视为样板忽略；候选上限 5）。
+- §7：SKILL.md 路径 → `docs/skills/skill-curator/SKILL.md`；SKILL_ROOT 改 `docs/skills/`；「接受自身治理」措辞同步（自身纳入扫描）。
+- §8：CLAUDE.md 示例中 `.claude/skills/_archive/`、`.claude/skills/CURATOR_REPORT.md` → `docs/skills/` 对应。
+- §9：「skill-curator 自身也是 `.claude/skills/` 下的一个 skill」→ `docs/skills/`；补一句「既有 28 个留在 `.claude/skills/`（Claude 原生发现），不在 curator 扫描范围」。
+- §10 交付物清单表：原 `.claude/skills/skill-curator/` 行改注「由 `.claude/skills/skill-curator/` 迁入 `docs/skills/skill-curator/`」；「不改动」条目追加「既有 28 个 skill 位置与内容均不动」。
+- §11 验收：归档路径 → `docs/skills/_archive/`。
+
+- [ ] **Step 7: 验证**
+
+Run:
+```bash
+cd "E:/monorepo/my-pc"
+echo "--- 1. 默认根（docs/skills）正常路径 ---"
+node docs/skills/skill-curator/scripts/curator-check.mjs; echo "exit=$?"
+echo "--- 2. 去样板化验收：对旧库根 .claude/skills ---"
+node docs/skills/skill-curator/scripts/curator-check.mjs .claude/skills
+echo "--- 3. 无残留旧路径引用 ---"
+grep -rn "claude/skills/skill-curator" docs .claude || echo "无残留"
+echo "--- 4. settings.json 合法 + hook 指向 docs ---"
+node -e "const s=require('./.claude/settings.json');const c=s.hooks.SessionStart[0].hooks[0].command;if(!c.includes('docs/skills'))throw Error('hook 未指向 docs/skills');console.log('OK: '+c)"
+echo "--- 5. git status ---"
+git status --short
+```
+Expected:
+1. 输出以 `【skill-curator 检测】1 个 SKILL.md` 开头 · 建议: 无需处理 · exit=0；`docs/skills/.curator-state.json` 生成。
+2. 重复候选条数明显低于旧版 50（无「即便没有明说」「use this skill」「when the user」「for creating」等样板族）。
+3. 输出「无残留」。
+4. `OK: node docs/skills/skill-curator/scripts/curator-check.mjs`。
+5. 仅含本任务交付物改动；`.claude/skills/skill-curator` 不再出现在 tracked 列表。
+
+- [ ] **Step 8: 提交**
+
+```bash
+git add -A docs/skills .claude/settings.json .claude/CLAUDE.md .gitignore docs/prompts/skill-curator-prompt.md docs/superpowers/specs/2026-08-30-skill-curator-design.md
+git commit -m "feat(skill-curator): 技能库迁移至 docs/skills（不入 .claude/.agents）+ 最终评审修复（去样板化/I-O 防护/空 name 防护/提示词措辞）
+Co-Authored-By: Claude <noreply@anthropic.com>"
+```
+
+**计划修订（用户需求变更 + 最终评审，Task 6，提交 cf18f19 后）：** 用户新指令「上述需求生成的 skills 不入传统 `.agents`/`.claude` 目录，改放 `docs/`，触发条件不变」；AskUserQuestion 定案「仅新库迁移（既有 28 个留 `.claude/skills/` 不动）+ 目标 `docs/skills/`」。最终全分支评审（opus）裁决 "With fixes"：I1（M2 去样板化 50→~13，FIX-BEFORE-MERGE）、I2（M1 未防护 I/O，FIX-BEFORE-MERGE）、M3（空 name 近似，FIX-BEFORE-MERGE）、M5（提示词 intro 工具名越界）——均并入 Task 6 一次性落地。Global Constraints 相应修订（库根 `docs/skills/`、自身纳入扫描）。
+
+---
+
 ## Self-Review 记录
 
 **1. 规格覆盖**：spec §5 通用提示词六节 → Task 1 全文；§6 Hook 脚本（扫描/状态/输出格式/检测规则）→ Task 2；§7 SKILL.md → Task 3；§8 CLAUDE.md + §9 与 skill-factory 共存 → Task 3 注意节 + Task 4；§10 交付物清单 → Task1–4 全覆盖；§11 验收 → Task 5 验证；§12 非破坏性 → 脚本无删除逻辑 + SOP 归档约定 + `.gitignore` 忽略状态文件。全数覆盖。
@@ -600,3 +932,5 @@ Expected: `git status --short` 为空或仅含本计划交付物文件；`git lo
 **3. 类型一致性**：`curator-check.mjs` 输出格式、`.curator-state.json` schema、`CURATOR_REPORT.md` 模板在 Task 2/3/4 及 spec 间一致；`SKILL_ROOT` 默认值一致；Hook 命令路径与脚本实际路径一致。
 
 **4. 已知偏差**：spec §10 交付物清单未列 `.gitignore`，但 `.curator-state.json` 若被提交会制造每次会话的脏工作树（违反 §11「git status 只含本计划交付物」），故 Task 2 追加忽略条目——有意为之。
+
+**5. Task 6（迁移 + 最终评审修复）**：用户需求变更（库根 `docs/skills/`，既有 28 个不动，触发条件不变）＋ 最终评审 "With fixes"（I1 去样板化 / I2 I/O 防护 / M3 空 name / M5 措辞）落地；Global Constraints 已同步（库根、自身纳入扫描）。
