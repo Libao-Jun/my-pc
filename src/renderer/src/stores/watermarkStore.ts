@@ -44,7 +44,11 @@ export const useWatermarkStore = create<WatermarkState>((set, get) => ({
 
   addFiles: async (type) => {
     const r = await window.api.watermark.pickFiles(type)
-    if (!r.ok || !r.data) return
+    if (!r.ok) {
+      set({ error: r.error.message })
+      return
+    }
+    if (!r.data) return
     const items: WatermarkQueueItem[] = r.data.map((p) => ({
       path: p,
       name: p.split(/[\\/]/).pop() ?? p,

@@ -57,8 +57,10 @@ export function registerWatermarkIpc(): void {
   })
 
   ipcMain.handle('watermark:applyPdf', async (_event, payload: { filePath: string; config: WatermarkConfig }) => {
+    if (!payload || typeof payload.filePath !== 'string' || !payload.filePath) {
+      throw new AppError('VALIDATION_ERROR', '无效的文件路径')
+    }
     validateConfig(payload.config)
-    if (typeof payload.filePath !== 'string') throw new AppError('VALIDATION_ERROR', '无效的文件路径')
     const outputPath = await applyPdf(payload.filePath, payload.config)
     return { outputPath }
   })
@@ -71,10 +73,10 @@ export function registerWatermarkIpc(): void {
   ipcMain.handle(
     'watermark:applyVideo',
     (event, payload: { filePath: string; config: WatermarkConfig; watermarkPng: Uint8Array }) => {
-      validateConfig(payload.config)
-      if (typeof payload.filePath !== 'string' || !payload.filePath) {
+      if (!payload || typeof payload.filePath !== 'string' || !payload.filePath) {
         throw new AppError('VALIDATION_ERROR', '无效的文件路径')
       }
+      validateConfig(payload.config)
       const sender: WebContents = event.sender
       return applyVideo(payload.filePath, payload.config, payload.watermarkPng, (percent) => {
         sender.send('watermark:videoProgress', { percent })

@@ -144,11 +144,11 @@ export function computeWatermarkPlacements(
 | 通道 | 方向 | 参数 | 返回 | 说明 |
 |------|------|------|------|------|
 | `watermark:pickFiles` | renderer→main | `type: 'image' \| 'pdf' \| 'video'` | `string[] \| null` | `dialog.showOpenDialog` 多选 + 扩展名过滤 |
-| `watermark:readBinary` | renderer→main | `path: string` | `ArrayBuffer` | 图片处理读字节 |
-| `watermark:writeFile` | renderer→main | `{ path, data: ArrayBuffer }` | `{ path }` | 图片处理写新文件 |
+| `watermark:readBinary` | renderer→main | `path: string` | `Uint8Array` | 图片处理读字节 |
+| `watermark:writeFile` | renderer→main | `{ sourcePath, data: Uint8Array }` | `{ outputPath }` | 图片处理写新文件 |
 | `watermark:applyPdf` | renderer→main | `{ filePath, config }` | `{ outputPath }` | pdf-lib 加 PDF 水印 |
 | `watermark:getVideoInfo` | renderer→main | `path: string` | `{ width, height, durationMs }` | 视频分辨率 / 时长探测 |
-| `watermark:applyVideo` | renderer→main | `{ filePath, config, watermarkPng: ArrayBuffer }` | `{ outputPath }` | 长任务；watermarkPng 为渲染层已绘好的透明水印 PNG；事件 `watermark:videoProgress` `{ percent }` |
+| `watermark:applyVideo` | renderer→main | `{ filePath, config, watermarkPng: Uint8Array }` | `{ outputPath }` | 长任务；watermarkPng 为渲染层已绘好的透明水印 PNG；事件 `watermark:videoProgress` `{ percent }` |
 
 preload 增 `watermark` 域；渲染层沿用 `invoke<T>` + `IpcResult`。**无持久化通道**（不建表）。
 
