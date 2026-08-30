@@ -1,4 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist'
+import type { PDFDocumentProxy } from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { drawWatermarkOn } from './watermarkRenderer'
 import type { WatermarkConfig } from '@shared/watermark'
@@ -23,9 +24,9 @@ export function inferPreviewType(filePath: string): WatermarkFileType | null {
 const MAX_W = 340
 const MAX_H = 260
 
-function fitSize(w: number, h: number): { w: number; h: number } {
+function fitSize(w: number, h: number): { w: number; h: number; scale: number } {
   const scale = Math.min(1, MAX_W / w, MAX_H / h)
-  return { w: Math.max(1, Math.round(w * scale)), h: Math.max(1, Math.round(h * scale)) }
+  return { w: Math.max(1, Math.round(w * scale)), h: Math.max(1, Math.round(h * scale)), scale }
 }
 
 export interface PreviewApi {
@@ -36,22 +37,25 @@ export interface PreviewApi {
   extractVideoFrame(payload: { filePath: string; timeMs: number }): Promise<{ ok: boolean; data?: Uint8Array; error?: { message: string } }>
 }
 
+// 原件按预览框等比缩小，水印字号必须同步缩放，预览才能与真实输出（原尺寸绘制）一致
 function drawBase(ctx: CanvasRenderingContext2D, bitmap: ImageBitmap, config: WatermarkConfig): void {
-  const { w, h } = fitSize(bitmap.width, bitmap.height)
+  const { w, h, scale } = fitSize(bitmap.width, bitmap.height)
   ctx.canvas.width = w
   ctx.canvas.height = h
   ctx.clearRect(0, 0, w, h)
   ctx.drawImage(bitmap, 0, 0, w, h)
-  drawWatermarkOn(ctx, w, h, config)
+  drawWatermarkOn(ctx, w, h, { ...config, fontSize: config.fontSize * scale })
 }
 
 // 渲染「原件+水印」到 canvas；返回预览范围说明（无说明返回 ''）；失败抛错。
+// isCancelled：每次 await 后检查；一旦为真即中止且不再写 canvas（避免旧渲染覆盖新帧）并返回 ''。
 export async function renderOriginalPreview(
   canvas: HTMLCanvasElement,
   filePath: string,
   type: WatermarkFileType,
   config: WatermarkConfig,
-  api: PreviewApi
+  api: PreviewApi,
+  isCancelled?: () => boolean
 ): Promise<string> {
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('canvas 初始化失败')
@@ -60,17 +64,26 @@ export async function renderOriginalPreview(
     let bytes: Uint8Array
     if (type === 'image') {
       const r = await api.readBinary(filePath)
+      if (isCancelled?.()) return ''
       if (!r.ok || !r.data) throw new Error(r.error?.message ?? '读取图片失败')
       bytes = r.data
     } else {
       const info = await api.getVideoInfo(filePath)
-      const durationMs = info.ok ? info.data?.durationMs ?? 0 : 0
+      if (isCancelled?.()) return ''
+      // 时长不可知或 ≤1s：无法定位安全的抽帧点，避免 -ss 越过 EOF 抽到空帧
+      if (!info.ok || !info.data || info.data.durationMs <= 1000) throw new Error('视频过短或无法读取')
+      const durationMs = info.data.durationMs
       const timeMs = Math.min(5000, Math.max(1000, durationMs * 0.05)) // 避开黑场首帧：≥1s 且 ≤5s
       const f = await api.extractVideoFrame({ filePath, timeMs })
+      if (isCancelled?.()) return ''
       if (!f.ok || !f.data) throw new Error(f.error?.message ?? '视频抽帧失败')
       bytes = f.data
     }
     const bitmap = await createImageBitmap(new Blob([bytes.slice()]))
+    if (isCancelled?.()) {
+      bitmap.close()
+      return ''
+    }
     drawBase(ctx, bitmap, config)
     bitmap.close()
     return type === 'video' ? '预览为前几秒帧' : ''
@@ -78,17 +91,29 @@ export async function renderOriginalPreview(
 
   // PDF：渲染第 1 页后叠加水印
   const r = await api.readBinary(filePath)
+  if (isCancelled?.()) return ''
   if (!r.ok || !r.data) throw new Error(r.error?.message ?? '读取 PDF 失败')
-  const pdf = await pdfjsLib.getDocument({ data: r.data }).promise
+  let pdf: PDFDocumentProxy
+  try {
+    pdf = await pdfjsLib.getDocument({ data: r.data }).promise
+  } catch {
+    throw new Error('PDF 文件损坏或无法解析')
+  }
   try {
     const page = await pdf.getPage(1)
+    if (isCancelled?.()) return ''
     const baseViewport = page.getViewport({ scale: 1 })
     const fit = fitSize(baseViewport.width, baseViewport.height)
     const viewport = page.getViewport({ scale: fit.w / baseViewport.width })
     canvas.width = viewport.width
     canvas.height = viewport.height
-    await page.render({ canvasContext: ctx, viewport }).promise
-    drawWatermarkOn(ctx, canvas.width, canvas.height, config)
+    try {
+      await page.render({ canvasContext: ctx, viewport }).promise
+    } catch {
+      throw new Error('PDF 文件损坏或无法解析')
+    }
+    if (isCancelled?.()) return ''
+    drawWatermarkOn(ctx, canvas.width, canvas.height, { ...config, fontSize: config.fontSize * viewport.scale })
     return '预览为首页'
   } finally {
     await pdf.destroy()

@@ -1,5 +1,6 @@
 import { spawn, execFile } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -140,7 +141,7 @@ export function getVideoInfo(filePath: string): Promise<VideoInfo> {
 // 抽一帧预览图（PNG 字节）。timeMs 为时间点，-ss 置于 -i 前（快进）。
 export async function extractVideoFrame(filePath: string, timeMs: number): Promise<Buffer> {
   const bin = resolveFfmpeg()
-  const framePath = path.join(tmpdir(), `mypc-wm-frame-${Date.now()}.png`)
+  const framePath = path.join(tmpdir(), `mypc-wm-frame-${randomUUID()}.png`)
   const secs = (timeMs / 1000).toFixed(3)
   try {
     await execFileAsync(bin, ['-ss', secs, '-i', filePath, '-frames:v', '1', '-f', 'image2', '-y', framePath])

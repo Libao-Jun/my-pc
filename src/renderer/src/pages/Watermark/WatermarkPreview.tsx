@@ -31,6 +31,7 @@ export function WatermarkPreview(): JSX.Element {
     const r = await window.api.watermark.pickOriginal()
     if (!r.ok) {
       setError(r.error.message)
+      setNote('')
       return
     }
     const path = r.data
@@ -38,9 +39,11 @@ export function WatermarkPreview(): JSX.Element {
     const type = inferPreviewType(path)
     if (!type) {
       setError('不支持的文件类型')
+      setNote('')
       return
     }
     setOriginal({ path, name: path.split(/[\\/]/).pop() ?? path, type })
+    setNote('')
     setError(null)
   }
 
@@ -49,7 +52,7 @@ export function WatermarkPreview(): JSX.Element {
     if (!canvas || !original) return
     let cancelled = false
     setError(null)
-    renderOriginalPreview(canvas, original.path, original.type, config, api)
+    renderOriginalPreview(canvas, original.path, original.type, config, api, () => cancelled)
       .then((n) => {
         if (!cancelled) setNote(n)
       })
@@ -85,6 +88,7 @@ export function WatermarkPreview(): JSX.Element {
               onClick={() => {
                 setOriginal(null)
                 setNote('')
+                setError(null)
               }}
             >
               清除
