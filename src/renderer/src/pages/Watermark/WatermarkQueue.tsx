@@ -20,9 +20,13 @@ export function WatermarkQueue(): JSX.Element {
   const clearQueue = useWatermarkStore((s) => s.clearQueue)
   const run = useWatermarkStore((s) => s.run)
   const cancelVideo = useWatermarkStore((s) => s.cancelVideo)
+  const previewPath = useWatermarkStore((s) => s.previewPath)
+  const setPreviewPath = useWatermarkStore((s) => s.setPreviewPath)
 
   const done = queue.filter((q) => q.status === 'done').length
   const failed = queue.filter((q) => q.status === 'failed').length
+
+  const activePath = queue.find((q) => q.path === previewPath)?.path ?? queue[0]?.path ?? null
 
   return (
     <div className={styles.queue}>
@@ -38,7 +42,9 @@ export function WatermarkQueue(): JSX.Element {
         </button>
       </div>
 
-      <WatermarkPreview />
+      <div className={styles.previewArea}>
+        <WatermarkPreview />
+      </div>
 
       {error && <p className={styles.error}>{error}</p>}
 
@@ -54,7 +60,7 @@ export function WatermarkQueue(): JSX.Element {
         </thead>
         <tbody>
           {queue.map((item) => (
-            <tr key={item.path}>
+            <tr key={item.path} className={activePath === item.path ? styles.active : undefined}>
               <td className={styles.name}>{item.name}</td>
               <td>{TYPE_LABEL[item.type]}</td>
               <td>{STATUS_LABEL[item.status]}</td>
@@ -62,6 +68,18 @@ export function WatermarkQueue(): JSX.Element {
                 {item.outputPath ?? item.error ?? ''}
               </td>
               <td>
+                {activePath === item.path ? (
+                  <span className={styles.previewing}>预览中</span>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.previewBtn}
+                    disabled={processing}
+                    onClick={() => setPreviewPath(item.path)}
+                  >
+                    预览
+                  </button>
+                )}
                 <button
                   type="button"
                   className={styles.remove}
