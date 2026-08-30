@@ -30,3 +30,6 @@ node_modules/
 
 # 系统文件
 Thumbs.db
+
+# skill-curator 运行时状态
+.claude/skills/.curator-state.json
