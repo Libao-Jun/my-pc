@@ -4,6 +4,8 @@ directories:
   output: release
 files:
   - out/**
+asarUnpack:
+  - node_modules/ffmpeg-static/**
 win:
   target:
     - target: nsis

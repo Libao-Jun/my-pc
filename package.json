@@ -15,7 +15,10 @@
     "dist": "electron-vite build && electron-builder"
   },
   "dependencies": {
-    "systeminformation": "^5.33.1"
+    "systeminformation": "^5.33.1",
+    "pdf-lib": "^1.17.1",
+    "ffmpeg-static": "^5.2.0",
+    "gifenc": "^1.0.3"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",
