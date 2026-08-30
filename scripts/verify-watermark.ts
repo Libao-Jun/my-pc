@@ -23,6 +23,13 @@ assert(ys3.length === 3, 'multi3 应有 3 条 y 带，实际 ' + ys3.length)
 assert(Math.abs(ys3[1] - ys3[0] - 200) <= 1, 'multi3 带间距应为 200')
 assert(Math.abs(ys3[2] - ys3[1] - 200) <= 1, 'multi3 带间距应为 200')
 
+// 带符号 tan：旋转 -45°（默认）时 dx = sy/tan(-45°) = -sy = -200，相邻行应左移（斜线带跟随文字 / 方向）。
+// 用 textWidth=200 使 sx=320 > |dx|=200，避免 sx=|dx| 时网格退化：左移时行1 的 c=0 锚点落在 x=300，
+// 右移（abs）时该锚点落在 x=700（300 处无锚点），据此区分方向。
+const dir = computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi3' }, 200)
+const row1Shifted = dir.some((p) => Math.abs(p.y - 300) < 1 && Math.abs(p.x - 300) <= 1)
+assert(row1Shifted, '旋转 -45° 时行1 的 c=0 锚点应左移到 x=300（dx=-200，跟随文字 / 方向）')
+
 // multi8 → 8 条带
 const multi8 = computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi8' }, 80)
 const ys8 = new Set(multi8.map((p) => Math.round(p.y)))
