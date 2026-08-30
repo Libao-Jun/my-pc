@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { PDFDocument, degrees, rgb } from 'pdf-lib'
 import type { PDFFont } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
 import ffmpegPath from 'ffmpeg-static'
 import { AppError } from '@shared/errors'
 import { computeWatermarkPlacements } from '@shared/watermark'
@@ -57,6 +58,8 @@ async function loadCjkFont(doc: PDFDocument): Promise<PDFFont> {
 
 export async function applyPdf(filePath: string, config: WatermarkConfig): Promise<string> {
   const doc = await PDFDocument.load(await readBinary(filePath))
+  // 注册 fontkit：嵌入自定义字体（非标准 14 字体）前必须调用，否则 embedFont 抛错
+  doc.registerFontkit(fontkit)
   const font = await loadCjkFont(doc)
   const pages = config.applyToAllPages ? doc.getPages() : doc.getPages().slice(0, 1)
   // 估算文本宽度（中文全角近似）：字号 × 字符数 × 0.6，仅用于多行模式的水平间距
@@ -94,7 +97,8 @@ function resolveFfmpeg(): string {
 }
 
 function parseVideoInfo(stderr: string): VideoInfo | null {
-  const stream = /Stream #\d+:\d+(?:\([^)]*\))?: Video:.*?(\d{2,5})x(\d{2,5})/.exec(stderr)
+  // 兼容 ffmpeg 6.x 的流 ID 标记（如 `Stream #0:0[0x1](und): Video: ...`）
+  const stream = /Stream #\d+:\d+(?:\[[^\]]*\])?(?:\([^)]*\))?: Video:.*?(\d{2,5})x(\d{2,5})/.exec(stderr)
   const duration = /Duration: (\d+):(\d+):(\d+\.\d+)/.exec(stderr)
   if (!stream) return null
   let durationMs = 0
