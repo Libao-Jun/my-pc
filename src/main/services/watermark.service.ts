@@ -67,7 +67,12 @@ export async function applyPdf(filePath: string, config: WatermarkConfig): Promi
     // 注册 fontkit：嵌入自定义字体（非标准 14 字体）前必须调用，否则 embedFont 抛错
     doc.registerFontkit(fontkit)
     const font = await loadCjkFont(doc)
-    const pages = config.applyToAllPages ? doc.getPages() : doc.getPages().slice(0, 1)
+    const allPages = doc.getPages()
+    const pages = allPages.filter((_, i) => {
+      if (config.pageScope === 'odd') return i % 2 === 0   // 第 1,3,5…页
+      if (config.pageScope === 'even') return i % 2 === 1  // 第 2,4,6…页
+      return true                                          // all
+    })
     // 估算文本宽度（中文全角近似）：字号 × 字符数 × 0.6，仅用于多行模式的水平间距
     const textWidth = config.fontSize * config.text.length * 0.6
     for (const page of pages) {

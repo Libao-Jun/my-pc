@@ -318,8 +318,8 @@ export interface DiagramApi {
 }
 
 // —— 水印保护域（watermark）——
-import type { WatermarkConfig, WatermarkLayout, WatermarkPosition } from './watermark'
-export type { WatermarkConfig, WatermarkLayout, WatermarkPosition } from './watermark'
+import type { WatermarkConfig, WatermarkLayout, WatermarkHAlign, WatermarkVAlign, WatermarkPageScope } from './watermark'
+export type { WatermarkConfig, WatermarkLayout, WatermarkHAlign, WatermarkVAlign, WatermarkPageScope } from './watermark'
 
 export interface WatermarkApplyResult {
   outputPath: string

@@ -22,65 +22,27 @@
   border-radius: 6px;
   font-size: 13px;
 }
-.row {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr 1fr;
-  gap: 10px;
-}
-.row input[type='range'] {
+.field input[type='range'] {
   width: 100%;
 }
-.row em {
+.field em {
   font-style: normal;
   color: #6b7280;
 }
-.radios {
+.group {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  gap: 10px;
 }
-.radio {
-  padding: 4px 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 12px;
-}
-.radio.active {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #fff;
-}
-.grid9 {
-  position: relative;
-  height: 64px;
-}
-.dot {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid #d1d5db;
-  background: #fff;
-  transform: translate(-50%, -50%);
-  cursor: pointer;
-}
-.dot:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-.dotActive {
-  background: #2563eb;
-  border-color: #2563eb;
+.groupTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
 }
 .disabled {
   opacity: 0.6;
-}
-.check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #374151;
 }

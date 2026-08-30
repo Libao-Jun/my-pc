@@ -8,12 +8,12 @@ function assert(cond: boolean, msg: string): void {
 const base: WatermarkConfig = { ...DEFAULT_WATERMARK_CONFIG }
 
 // single + center → 恰 1 个锚点，落在 (500, 300)
-const single = computeWatermarkPlacements(1000, 600, { ...base, layout: 'single', position: 'center' }, 80)
+const single = computeWatermarkPlacements(1000, 600, { ...base, layout: 'single', hAlign: 'center', vAlign: 'middle' }, 80)
 assert(single.length === 1, 'single 应返回 1 个锚点，实际 ' + single.length)
 assert(Math.abs(single[0].x - 500) < 1 && Math.abs(single[0].y - 300) < 1, 'single 居中锚点应落在 (500,300)')
 
 // single + top-left → 锚点靠近左上
-const tl = computeWatermarkPlacements(1000, 600, { ...base, layout: 'single', position: 'top-left' }, 80)
+const tl = computeWatermarkPlacements(1000, 600, { ...base, layout: 'single', hAlign: 'left', vAlign: 'top' }, 80)
 assert(tl[0].x < 200 && tl[0].y < 200, 'top-left 应在左上角')
 
 // multi3 → 恰好 3 条 y 带，间距 = 600/3 = 200

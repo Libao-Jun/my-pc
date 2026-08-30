@@ -1,13 +1,10 @@
 // 跨进程共享的水印模型与布局算法 —— 单一真相源（渲染层 canvas / 主进程 pdf-lib / 视频水印 PNG 共用）。
 // 纯 TS、无任何运行时导入，保证 Node 验证脚本可直接执行。
 
-export type WatermarkPosition =
-  | 'center'
-  | 'top-left' | 'top-center' | 'top-right'
-  | 'center-left' | 'center-right'
-  | 'bottom-left' | 'bottom-center' | 'bottom-right'
-
 export type WatermarkLayout = 'single' | 'multi2' | 'multi3' | 'multi6' | 'multi8'
+export type WatermarkHAlign = 'left' | 'center' | 'right'
+export type WatermarkVAlign = 'top' | 'middle' | 'bottom'
+export type WatermarkPageScope = 'all' | 'odd' | 'even'
 
 export interface WatermarkConfig {
   text: string
@@ -16,8 +13,9 @@ export interface WatermarkConfig {
   opacity: number
   rotation: number
   layout: WatermarkLayout
-  position: WatermarkPosition
-  applyToAllPages: boolean
+  hAlign: WatermarkHAlign
+  vAlign: WatermarkVAlign
+  pageScope: WatermarkPageScope
 }
 
 export const DEFAULT_WATERMARK_CONFIG: WatermarkConfig = {
@@ -27,8 +25,9 @@ export const DEFAULT_WATERMARK_CONFIG: WatermarkConfig = {
   opacity: 0.3,
   rotation: -45,
   layout: 'multi3',
-  position: 'center',
-  applyToAllPages: true
+  hAlign: 'center',
+  vAlign: 'middle',
+  pageScope: 'all'
 }
 
 export interface WatermarkPlacement {
@@ -36,19 +35,11 @@ export interface WatermarkPlacement {
   y: number
 }
 
-function positionAnchor(w: number, h: number, position: WatermarkPosition): WatermarkPlacement {
+function positionAnchor(w: number, h: number, config: WatermarkConfig): WatermarkPlacement {
   const m = Math.min(w, h) * 0.06
-  switch (position) {
-    case 'top-left': return { x: m, y: m }
-    case 'top-center': return { x: w / 2, y: m }
-    case 'top-right': return { x: w - m, y: m }
-    case 'center-left': return { x: m, y: h / 2 }
-    case 'center-right': return { x: w - m, y: h / 2 }
-    case 'bottom-left': return { x: m, y: h - m }
-    case 'bottom-center': return { x: w / 2, y: h - m }
-    case 'bottom-right': return { x: w - m, y: h - m }
-    default: return { x: w / 2, y: h / 2 }
-  }
+  const x = config.hAlign === 'left' ? m : config.hAlign === 'right' ? w - m : w / 2
+  const y = config.vAlign === 'top' ? m : config.vAlign === 'bottom' ? h - m : h / 2
+  return { x, y }
 }
 
 // 坐标系约定：y 轴向下（canvas 惯例）；PDF 消费方在绘制时自行翻转 y。
@@ -58,10 +49,10 @@ export function computeWatermarkPlacements(
   config: WatermarkConfig,
   textWidth = 0
 ): WatermarkPlacement[] {
-  if (config.layout === 'single') return [positionAnchor(width, height, config.position)]
+  if (config.layout === 'single') return [positionAnchor(width, height, config)]
 
   const n = Number(config.layout.replace('multi', ''))
-  if (!Number.isFinite(n) || n < 1) return [positionAnchor(width, height, config.position)]
+  if (!Number.isFinite(n) || n < 1) return [positionAnchor(width, height, config)]
 
   const theta = (config.rotation * Math.PI) / 180
   const sy = height / n
