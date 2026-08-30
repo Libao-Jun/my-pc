@@ -19,6 +19,7 @@
     "ffmpeg-static": "^5.2.0",
     "gifenc": "^1.0.3",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.0.0",
     "systeminformation": "^5.33.1"
   },
   "devDependencies": {
