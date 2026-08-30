@@ -109,6 +109,7 @@ export function WatermarkConfigForm(): JSX.Element {
               type="button"
               aria-label={p.value}
               disabled={!single}
+              style={{ left: p.x, top: p.y }}
               className={`${styles.dot}${config.position === p.value ? ` ${styles.dotActive}` : ''}`}
               onClick={() => setConfig({ position: p.value as never })}
             />
