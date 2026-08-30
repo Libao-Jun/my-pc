@@ -6,7 +6,7 @@
 
 **Architecture:** 新增 `watermark` 功能域，遵循现有 `service → ipc → preload → store → page` 三层模式。布局算法集中到 `src/shared/watermark.ts` 纯函数（单一真相源）。图片走渲染层 canvas 管线（零依赖 + `gifenc`），PDF 走主进程 `pdf-lib`（嵌入系统 CJK 字体），视频走主进程 ffmpeg（透明水印 PNG 覆盖层 + overlay，音频 `-c:a copy`）。
 
-**Tech Stack:** Electron 36 / React 18 / TypeScript 5 strict / Zustand / CSS Modules / `pdf-lib` / `ffmpeg-static` / `gifenc`
+**Tech Stack:** Electron 36 / React 18 / TypeScript 5 strict / Zustand / CSS Modules / `pdf-lib` / `@pdf-lib/fontkit` / `ffmpeg-static` / `gifenc`
 
 ## Global Constraints
 
@@ -16,7 +16,7 @@
 - 输出命名 `原名.水印.ext`，路径冲突自动加序号 `原名.水印(1).ext`。
 - 水印颜色固定中性灰 `#808080`（不做自定义）；布局：单行 / 一页两行/三行/六行/八行；文本位置九宫格仅单行生效；`applyToAllPages` 仅 PDF 生效。
 - 错误统一 `AppError` + `ErrorCode`；新增 `PROCESS_FAILED` 错误码。
-- 依赖仅允许新增：`pdf-lib`、`ffmpeg-static`、`gifenc`；图片编码除 GIF 外零依赖。
+- 依赖仅允许新增：`pdf-lib`、`@pdf-lib/fontkit`（pdf-lib 嵌入自定义字体必需，Task 4 修复轮补加）、`ffmpeg-static`、`gifenc`；图片编码除 GIF 外零依赖。
 - 界面文案中文，主进程错误信息抛中文。
 
 ---
@@ -203,11 +203,12 @@ git commit -m "feat(watermark): 共享水印模型与布局算法（computeWater
     "systeminformation": "^5.33.1",
     "pdf-lib": "^1.17.1",
     "ffmpeg-static": "^5.2.0",
-    "gifenc": "^1.0.3"
+    "gifenc": "^1.0.3",
+    "@pdf-lib/fontkit": "^1.1.1"
   }
 ```
 
-（版本以实现时 `npm install` 解析到的实际最新兼容版为准；`pdf-lib` ≥1.16、`ffmpeg-static` ≥5、`gifenc` ≥1。）
+（版本以实现时 `npm install` 解析到的实际最新兼容版为准；`pdf-lib` ≥1.16、`ffmpeg-static` ≥5、`gifenc` ≥1、`@pdf-lib/fontkit` ≥1。注：`@pdf-lib/fontkit` 在 Task 4 修复轮补加——pdf-lib 嵌入自定义字体必须 `registerFontkit`，Task 4 代码块已同步。）
 
 - [ ] **Step 2: `electron-builder.yml` 增加 `asarUnpack`**
 
@@ -386,6 +387,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { PDFDocument, degrees, rgb } from 'pdf-lib'
 import type { PDFFont } from 'pdf-lib'
+import fontkit from '@pdf-lib/fontkit'
 import ffmpegPath from 'ffmpeg-static'
 import { AppError } from '@shared/errors'
 import { computeWatermarkPlacements } from '@shared/watermark'
@@ -437,6 +439,8 @@ async function loadCjkFont(doc: PDFDocument): Promise<PDFFont> {
 
 export async function applyPdf(filePath: string, config: WatermarkConfig): Promise<string> {
   const doc = await PDFDocument.load(await readBinary(filePath))
+  // 嵌入自定义字体前必须注册 fontkit（pdf-lib 1.17.1 中为实例方法）。修复轮补加：原计划漏掉，导致 embedFont 运行时必失败。
+  doc.registerFontkit(fontkit)
   const font = await loadCjkFont(doc)
   const pages = config.applyToAllPages ? doc.getPages() : doc.getPages().slice(0, 1)
   // 估算文本宽度（中文全角近似）：字号 × 字符数 × 0.6，仅用于多行模式的水平间距
@@ -474,7 +478,8 @@ function resolveFfmpeg(): string {
 }
 
 function parseVideoInfo(stderr: string): VideoInfo | null {
-  const stream = /Stream #\d+:\d+(?:\([^)]*\))?: Video:.*?(\d{2,5})x(\d{2,5})/.exec(stderr)
+  // 宽松匹配 ffmpeg 6.x 的流标记（如 `Stream #0:0[0x1](und): Video:`）与普通形式（`Stream #0:0: Video:`）。修复轮改：原正则不含 `[0x1]` 可选组，在 gyan.dev ffmpeg 6.x 输出上匹配失败。
+  const stream = /Stream #\d+:\d+(?:\[[^\]]*\])?(?:\([^)]*\))?: Video:.*?(\d{2,5})x(\d{2,5})/.exec(stderr)
   const duration = /Duration: (\d+):(\d+):(\d+\.\d+)/.exec(stderr)
   if (!stream) return null
   let durationMs = 0
