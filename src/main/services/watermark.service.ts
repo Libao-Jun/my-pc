@@ -77,8 +77,10 @@ export async function applyPdf(filePath: string, config: WatermarkConfig): Promi
       if (config.pageScope === 'even') return i % 2 === 1  // 第 2,4,6…页
       return true                                          // all
     })
-    // 估算文本尺寸（中文全角近似）：宽 = 字号 × 字符数 × 0.6；高 ≈ 1.4em。用于多行模式的间距排布
-    const textWidth = config.fontSize * config.text.length * 0.6
+    // 用已嵌入字体精确测量文本宽：混合 CJK+ASCII 长文本（如「所有日期均按 GMT+8 时间显示」）若按
+    // 字符数×0.6 估算会低估 ~28%（CJK 约 1.0em/字），导致旋转布局行距按窄文本排布、实际更宽 → 行合并。
+    // 高 ≈1.4em（与共享层默认一致）。供多行模式的间距排布。
+    const textWidth = font.widthOfTextAtSize(config.text, config.fontSize)
     const textHeight = config.fontSize * 1.4
     for (const page of pages) {
       const { width, height } = page.getSize()

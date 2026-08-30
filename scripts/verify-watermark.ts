@@ -1,4 +1,4 @@
-import { computeWatermarkPlacements, DEFAULT_WATERMARK_CONFIG } from '../src/shared/watermark.ts'
+import { computeWatermarkPlacements, DEFAULT_WATERMARK_CONFIG, estimateTextWidth } from '../src/shared/watermark.ts'
 import type { WatermarkConfig } from '../src/shared/watermark.ts'
 
 function assert(cond: boolean, msg: string): void {
@@ -81,5 +81,46 @@ assertNoOverlap(1000, 600, 'multi8', 45, 120, 56, '画布八行 45° 中文本')
 assertNoOverlap(600, 400, 'multi8', 0, 240, 56, '小页八行 0° 长文本')
 // 短文本 + 旋转（不应破坏原本正常场景）
 assertNoOverlap(595, 842, 'multi6', 45, 80, 56, 'A4 六行 45° 短文本')
+
+// —— 回归：任意文本长度（几个字~几十个字）× 旋转 -45°~45° 均不得重叠 ——
+// 历史缺陷簇 1：小页 8 行 + 低旋转角 + 短文本 → 对角带垂直间距 sx·|sinθ| < 文本高 → 数百对跨列文本重叠
+assertNoOverlap(600, 400, 'multi8', -10, 40, 56, '小页八行 -10° 短文本')
+assertNoOverlap(600, 400, 'multi8', -5, 80, 56, '小页八行 -5° 短文本')
+assertNoOverlap(600, 400, 'multi8', 10, 40, 56, '小页八行 10° 短文本')
+assertNoOverlap(600, 400, 'multi6', -5, 200, 56, '小页六行 -5° 中文本')
+assertNoOverlap(600, 400, 'multi6', 15, 120, 56, '小页六行 15° 短文本')
+assertNoOverlap(600, 400, 'multi6', 3, 568, 56, '小页六行 3° 长混合文本')
+assertNoOverlap(842, 595, 'multi8', -15, 120, 56, 'A4横 八行 -15° 短文本')
+assertNoOverlap(842, 595, 'multi8', -3, 568, 56, 'A4横 八行 -3° 长混合文本')
+assertNoOverlap(842, 595, 'multi8', 10, 200, 56, 'A4横 八行 10° 中文本')
+// 历史缺陷簇 2：混合 CJK+ASCII 长文本（如「所有日期均按 GMT+8 时间显示」@40px ≈568px）在低-中旋转角也不得合并
+assertNoOverlap(595, 842, 'multi6', 10, 568, 56, 'A4 六行 10° 长混合文本')
+assertNoOverlap(595, 842, 'multi6', 15, 568, 56, 'A4 六行 15° 长混合文本')
+assertNoOverlap(595, 842, 'multi6', 30, 568, 56, 'A4 六行 30° 长混合文本')
+assertNoOverlap(595, 842, 'multi8', 10, 568, 56, 'A4 八行 10° 长混合文本')
+assertNoOverlap(595, 842, 'multi8', -20, 568, 56, 'A4 八行 -20° 长混合文本')
+// 视频帧 / 画布 常见尺寸
+assertNoOverlap(1280, 720, 'multi6', 20, 568, 56, '720p 六行 20° 长混合文本')
+assertNoOverlap(1000, 600, 'multi8', 25, 80, 56, '画布八行 25° 短文本')
+assertNoOverlap(1000, 600, 'multi6', -30, 320, 56, '画布六行 -30° 中文本')
+// 超长文本（≈30 字）高旋转也不得合并
+assertNoOverlap(595, 842, 'multi8', 45, 1200, 56, 'A4 八行 45° 超长文本')
+assertNoOverlap(1000, 600, 'multi3', 45, 1200, 56, '画布三行 45° 超长文本')
+
+// —— estimateTextWidth 近似符合真实渲染宽度（画布实测 568；模拟估出 548，容差 ±60）——
+const est = estimateTextWidth('所有日期均按 GMT+8 时间显示', 40)
+assert(Math.abs(est - 568) < 60, `estimateTextWidth 应在 508~628，实际 ${est}`)
+assert(Math.abs(estimateTextWidth('机密', 40) - 80) < 8, '纯 CJK 应约 1.0em/字')
+assert(Math.abs(estimateTextWidth('abc123', 40) - 144) < 20, '纯 ASCII 应约 0.6em/字')
+// 未传 textWidth 时默认用估算宽，长混合文本在旋转下同样不得重叠（估算默认兜底路径）
+const defCfg: WatermarkConfig = { ...base, layout: 'multi6', rotation: 15, text: '所有日期均按 GMT+8 时间显示', fontSize: 40 }
+const defPs = computeWatermarkPlacements(595, 842, defCfg)
+{
+  const theta = (15 * Math.PI) / 180
+  const rects: Rect[] = defPs.map((p) => ({ cx: p.x, cy: p.y, hw: est / 2, hh: 56 / 2, angle: theta }))
+  let ov = 0
+  for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) if (rectsOverlap(rects[i], rects[j])) ov++
+  assert(ov === 0, `默认估算宽路径：A4 六行 15° 长混合文本重叠 ${ov} 对`)
+}
 
 console.log('ALL_WATERMARK_LAYOUT_TESTS_PASSED')
