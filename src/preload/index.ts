@@ -25,6 +25,10 @@ import type {
   SearchQuery,
   Settings,
   SystemOverview,
+  VideoProgress,
+  WatermarkApplyResult,
+  WatermarkConfig,
+  WatermarkFileType,
   WindowApi
 } from '@shared/types'
 
@@ -102,6 +106,31 @@ const api: WindowApi = {
   },
   diagram: {
     generate: (req) => invoke<DiagramResult>('diagram:generate', req)
+  },
+  watermark: {
+    pickFiles: (type: WatermarkFileType) => invoke<string[] | null>('watermark:pickFiles', type),
+    readBinary: (path: string) => invoke<Uint8Array>('watermark:readBinary', path),
+    writeFile: (payload: { sourcePath: string; data: Uint8Array }) =>
+      invoke<WatermarkApplyResult>('watermark:writeFile', payload),
+    applyPdf: (payload: { filePath: string; config: WatermarkConfig }) =>
+      invoke<WatermarkApplyResult>('watermark:applyPdf', payload),
+    getVideoInfo: (path: string) =>
+      invoke<{ width: number; height: number; durationMs: number }>('watermark:getVideoInfo', path),
+    applyVideo: (payload: {
+      filePath: string
+      config: WatermarkConfig
+      watermarkPng: Uint8Array
+    }) => invoke<WatermarkApplyResult>('watermark:applyVideo', payload),
+    cancelVideo: () => {
+      ipcRenderer.send('watermark:cancelVideo')
+    },
+    onVideoProgress: (cb: (p: VideoProgress) => void) => {
+      const listener = (_event: IpcRendererEvent, progress: VideoProgress): void => cb(progress)
+      ipcRenderer.on('watermark:videoProgress', listener)
+      return () => {
+        ipcRenderer.removeListener('watermark:videoProgress', listener)
+      }
+    }
   }
 }
 

@@ -10,6 +10,7 @@ export type ErrorCode =
   | 'AI_NOT_CONFIGURED'
   | 'AI_API_ERROR'
   | 'CANCELLED'
+  | 'PROCESS_FAILED'
 
 export interface AppErrorShape {
   code: ErrorCode
@@ -316,6 +317,35 @@ export interface DiagramApi {
   generate(req: DiagramRequest): Promise<IpcResult<DiagramResult>>
 }
 
+// —— 水印保护域（watermark）——
+import type { WatermarkConfig, WatermarkLayout, WatermarkPosition } from './watermark'
+export type { WatermarkConfig, WatermarkLayout, WatermarkPosition } from './watermark'
+
+export interface WatermarkApplyResult {
+  outputPath: string
+}
+
+export interface VideoProgress {
+  percent: number
+}
+
+export type WatermarkFileType = 'image' | 'pdf' | 'video'
+
+export interface WatermarkApi {
+  pickFiles(type: WatermarkFileType): Promise<IpcResult<string[] | null>>
+  readBinary(path: string): Promise<IpcResult<Uint8Array>>
+  writeFile(payload: { sourcePath: string; data: Uint8Array }): Promise<IpcResult<WatermarkApplyResult>>
+  applyPdf(payload: { filePath: string; config: WatermarkConfig }): Promise<IpcResult<WatermarkApplyResult>>
+  getVideoInfo(path: string): Promise<IpcResult<{ width: number; height: number; durationMs: number }>>
+  applyVideo(payload: {
+    filePath: string
+    config: WatermarkConfig
+    watermarkPng: Uint8Array
+  }): Promise<IpcResult<WatermarkApplyResult>>
+  cancelVideo(): void
+  onVideoProgress(cb: (p: VideoProgress) => void): () => void // 订阅 'watermark:videoProgress'，返回退订函数
+}
+
 export interface WindowApi {
   app: AppApi
   settings: SettingsApi
@@ -325,4 +355,5 @@ export interface WindowApi {
   adblock: AdblockApi
   resume: ResumeApi
   diagram: DiagramApi
+  watermark: WatermarkApi
 }
