@@ -24,7 +24,7 @@
 | 7 | PDF「应用于全部页面」 | `applyToAllPages=true` → 所有页；`false` → 仅第一页（默认 true） |
 | 8 | 水印颜色 | 固定默认中性灰 `#808080`（防伪水印惯例；需求未要求自定义颜色，YAGNI 不实现） |
 | 9 | 历史 / 批量持久化 | **不做**（YAGNI）：无水印历史表，无批量任务持久化；只保留会话内队列 |
-| 10 | 图片输出格式 | **必须保持原格式**（用户确认）：png/jpeg/webp → canvas `toBlob` 原生编码（零依赖）；bmp → 手写未压缩 BMP 编码器（零依赖，~60 行）；gif → 轻量纯 JS 编码器 `gifenc`（输出静态 GIF，格式保持 gif）；svg / ico / heic / tiff / psd 不入图片选择器（canvas 无法可靠解码/编码，无法保证原格式输出） |
+| 10 | 图片输出格式 | **必须保持原格式**（用户确认）：png / jpg / jpeg / webp → canvas `toBlob` 原生编码（零依赖），**输出扩展名与原文件逐字一致**（`.jpg`→`.jpg`、`.jpeg`→`.jpeg`，同属 JPEG 编码、各自保留扩展名，不能变为其他格式）；bmp → 手写未压缩 BMP 编码器（零依赖，~60 行）；gif → 轻量纯 JS 编码器 `gifenc`（输出静态 GIF，格式保持 gif）；svg / ico / heic / tiff / psd 不入图片选择器（canvas 无法可靠解码/编码，无法保证原格式输出） |
 
 ## 3. 架构
 
@@ -88,8 +88,8 @@ export function computeWatermarkPlacements(
 3. 渲染层 `createImageBitmap(new Blob([buf]))` 解码（异步，不阻塞 UI）。
 4. 建 canvas `w×h`，`ctx.drawImage` 画原图。
 5. 按 `computeWatermarkPlacements(w, h, config)` 逐锚点：`save() → translate(x,y) → rotate(θ) → globalAlpha=opacity → fillStyle='#808080' → font='${fontSize}px ${fontFamily}' → textAlign='center' / textBaseline='middle' → fillText → restore()`。
-6. 导出**保持原格式**（扩展名 → 编码方式映射）：
-   - `png` / `jpeg` / `webp` → `canvas.toBlob('image/png' | 'image/jpeg'(0.92) | 'image/webp'(0.92))`，canvas 原生编码，零依赖。
+6. 导出**保持原格式**（扩展名 → 编码方式映射；**输出扩展名一律与原文件逐字一致**）：
+   - `png` / `jpg` / `jpeg` / `webp` → `canvas.toBlob('image/png' | 'image/jpeg'(0.92) | 'image/webp'(0.92))`，canvas 原生编码，零依赖；`jpg` 与 `jpeg` 同属 JPEG 编码，各自输出 `.jpg` / `.jpeg` 扩展名。
    - `bmp` → 手写**未压缩 BMP 编码器**（BMP 头 + 每行像素，从 canvas 原始像素 `getImageData` 取数，零依赖，~60 行）。
    - `gif` → `gifenc`（轻量纯 JS）编码：取首帧 + 水印绘制结果，输出**静态 GIF**（格式保持 gif；动画帧不逐帧保留）。
 7. `watermark:writeFile({ path: 输出路径, data })` → 主进程写 `原名.水印.ext`。
@@ -182,7 +182,7 @@ preload 增 `watermark` 域；渲染层沿用 `invoke<T>` + `IpcResult`。**无�
 ## 8. 验收标准
 
 - [ ] 选择图片批量加水印：输出 `原名.水印.ext`，原图不动，单行 / 一页两行/三行/六行/八行均正确。
-- [ ] 图片输出**保持原格式**：png / jpeg / webp / bmp / gif 各加一份，输出扩展名与原文件一致。
+- [ ] 图片输出**保持原格式**：png / jpg / jpeg / webp / bmp / gif 各加一份，输出扩展名与原文件**逐字一致**（`.jpg` 输入 → `.jpg` 输出、`.jpeg` 输入 → `.jpeg` 输出，不能变为其他格式）。
 - [ ] 单行模式九宫格位置与旋转角度生效。
 - [ ] 多页 PDF 加水印：`applyToAllPages` 开 → 全部页；关 → 仅第一页；中文水印正确显示（CJK 字体嵌入生效）。
 - [ ] 视频加水印：输出同容器新文件，水印叠加正确、音频保留、进度条推进、可取消。
