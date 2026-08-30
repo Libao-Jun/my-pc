@@ -1,5 +1,18 @@
 {
   "enabledPlugins": {
     "superpowers@superpowers-marketplace": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/skills/skill-curator/scripts/curator-check.mjs"
+          }
+        ]
+      }
+    ]
   }
 }
