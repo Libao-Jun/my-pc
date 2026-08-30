@@ -8,6 +8,7 @@ import { FileManagerPage } from './pages/FileManager/FileManagerPage'
 import { ResumeOptimizerPage } from './pages/ResumeOptimizer/ResumeOptimizerPage'
 import { SystemOverviewPage } from './pages/SystemMonitor/SystemOverviewPage'
 import { SettingsPage } from './pages/Settings/SettingsPage'
+import { WatermarkPage } from './pages/Watermark/WatermarkPage'
 
 export function App(): JSX.Element {
   const [page, setPage] = useState<PageId>('system')
@@ -25,6 +26,8 @@ export function App(): JSX.Element {
           <ResumeOptimizerPage />
         ) : page === 'diagram' ? (
           <DiagramGeneratorPage />
+        ) : page === 'watermark' ? (
+          <WatermarkPage />
         ) : (
           <SettingsPage />
         )}

@@ -1,6 +1,6 @@
 import styles from './SideNav.module.css'
 
-export type PageId = 'system' | 'files' | 'adblock' | 'resume' | 'diagram' | 'settings'
+export type PageId = 'system' | 'files' | 'adblock' | 'resume' | 'diagram' | 'watermark' | 'settings'
 
 interface SideNavProps {
   active: PageId
@@ -13,6 +13,7 @@ const NAV_ITEMS: { id: PageId; label: string }[] = [
   { id: 'adblock', label: '广告屏蔽' },
   { id: 'resume', label: '简历' },
   { id: 'diagram', label: '图表' },
+  { id: 'watermark', label: '水印' },
   { id: 'settings', label: '设置' }
 ]
 

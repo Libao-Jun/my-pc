@@ -1,0 +1,22 @@
+.page {
+  padding: 20px;
+}
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.right {
+  min-width: 0;
+}

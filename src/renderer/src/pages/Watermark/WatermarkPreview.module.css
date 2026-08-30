@@ -1,0 +1,17 @@
+.preview {
+  background: var(--surface, #fff);
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+}
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.canvas {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  display: block;
+}
