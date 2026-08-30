@@ -46,7 +46,7 @@
 docs/prompts/skill-curator-prompt.md   ← 通用提示词（可移植核心，工具无关，可贴入 CLAUDE.md/AGENTS.md/任意 Vibe 工具）
         │ 实例化
         ▼
-.claude/skills/skill-curator/
+docs/skills/skill-curator/
    ├── SKILL.md                        ← 本仓库执行实例（SOP 实体化，frontmatter 触发词）
    └── scripts/curator-check.mjs       ← SessionStart Hook 脚本（Node 内置 API，零依赖）
         │ 挂载
@@ -57,12 +57,12 @@ docs/prompts/skill-curator-prompt.md   ← 通用提示词（可移植核心，�
 
 **触发回路**
 - **会话开始**：Hook 运行 `curator-check.mjs` → 扫描 `SKILL_ROOT/*/SKILL.md` → 摘要注入上下文 → 若摘要报"重复候选/超体积/缺描述/过久未重梳理"→ AI 自主决定是否当场重梳理。
-- **上下文压缩后**：AI 重读 Hook 摘要自行判断；若摘要已不在上下文，可**手动重跑检查脚本**（`node .claude/skills/skill-curator/scripts/curator-check.mjs`）重新获得当前状态后判断——Hook 仅在会话开始自动跑，脚本本身随时可执行。
+- **上下文压缩后**：AI 重读 Hook 摘要自行判断；若摘要已不在上下文，可**手动重跑检查脚本**（`node docs/skills/skill-curator/scripts/curator-check.mjs`）重新获得当前状态后判断——Hook 仅在会话开始自动跑，脚本本身随时可执行。
 - **功能/阶段完成时**：AI 顺手把该功能可复用部分抽离为新 skill 并重梳理相关类目。
 
 ## 5. 通用提示词内容（核心交付物 `docs/prompts/skill-curator-prompt.md`）
 
-工具无关，`SKILL_ROOT` 参数化（默认 `.claude/skills/`，可替换为任意助手技能目录）。
+工具无关，`SKILL_ROOT` 参数化（默认 `docs/skills/`，可替换为任意助手技能目录）。
 
 **文档章节（6 节）**
 
@@ -83,10 +83,10 @@ docs/prompts/skill-curator-prompt.md   ← 通用提示词（可移植核心，�
 5. **变更报告**：每次重梳理在 `SKILL_ROOT/CURATOR_REPORT.md` 追加条目（新增/合并/精简/归档了什么、为什么、如何回滚），保证人类可审计、可恢复。
 6. **token 节俭惯例**：描述优先——维护索引时只读 `description`；正文仅在执行该 skill 时加载；合并/精简以"同功能更低 token 达成"为准绳（本版不设硬指标）。
 
-## 6. Hook 设计（`.claude/skills/skill-curator/scripts/curator-check.mjs`）
+## 6. Hook 设计（`docs/skills/skill-curator/scripts/curator-check.mjs`）
 
-- **运行时**：Node 22 内置 `fs`/`path`，零依赖。命令：`node .claude/skills/skill-curator/scripts/curator-check.mjs [SKILL_ROOT]`（参数缺省用 `.claude/skills/`）。
-- **扫描**：`SKILL_ROOT/*/SKILL.md` 的 frontmatter（`name`/`description`）+ 文件字节数；排除 `SKILL_ROOT/_archive/` 与自身（`skill-curator`）。
+- **运行时**：Node 22 内置 `fs`/`path`，零依赖。命令：`node docs/skills/skill-curator/scripts/curator-check.mjs [SKILL_ROOT]`（参数缺省用 `docs/skills/`）。
+- **扫描**：`SKILL_ROOT/*/SKILL.md` 的 frontmatter（`name`/`description`）+ 文件字节数；排除 `SKILL_ROOT/_archive/`（自身纳入扫描）。
 - **状态**：读写 `SKILL_ROOT/.curator-state.json`：
   ```json
   { "lastFullReorg": "2026-08-30T00:00:00.000Z", "lastCheck": "2026-08-30T00:00:00.000Z" }
@@ -101,7 +101,7 @@ docs/prompts/skill-curator-prompt.md   ← 通用提示词（可移植核心，�
   - 建议: 无需处理  /  建议合并 a↔b  /  已超 30 天，建议全盘重梳理
   ```
 - **detection 规则**（脚本内实现）：
-  - 重复候选：两两比较 `name` 的编辑距离 ≤2 或共享 `description` 中长度 ≥6 的相同中文短语/≥12 的相同英文单词序列。
+  - 重复候选：两两比较 `name` 的编辑距离 ≤2 或共享 `description` 中长度 ≥6 的相同中文短语/≥12 的相同英文单词序列（共享短语被 ≥3 个 skill 共用视为样板忽略；候选展示上限 5）。
   - 超体积：单文件 >8KB 记入"最大"列表（仅展示，不阻塞）。
   - 缺描述：无 `description` 或长度 <8。
   - 陈旧：`now - lastFullReorg > 30d`。
@@ -115,9 +115,9 @@ docs/prompts/skill-curator-prompt.md   ← 通用提示词（可移植核心，�
   ```
 - 正文结构：
   1. 一句话职责 + 指向 `docs/prompts/skill-curator-prompt.md`（通用提示词全文是权威）。
-  2. 本仓库具体路径：`SKILL_ROOT = .claude/skills/`、状态 `.claude/skills/.curator-state.json`、报告 `.claude/skills/CURATOR_REPORT.md`、归档 `.claude/skills/_archive/`。
+  2. 本仓库具体路径：`SKILL_ROOT = docs/skills/`、状态 `docs/skills/.curator-state.json`、报告 `docs/skills/CURATOR_REPORT.md`、归档 `docs/skills/_archive/`。
   3. 执行 SOP（照 §5-3）：新增/修改/合并/精简/归档，非破坏性约定。
-  4. 触发检查：`node .claude/skills/skill-curator/scripts/curator-check.mjs`。
+  4. 触发检查：`node docs/skills/skill-curator/scripts/curator-check.mjs`。
   5. 变更报告格式（追加到 `CURATOR_REPORT.md`）：
      ```
      ## YYYY-MM-DD（触发源: session-start | compaction | feature | manual）
@@ -137,7 +137,7 @@ docs/prompts/skill-curator-prompt.md   ← 通用提示词（可移植核心，�
 - 本仓库的 AI 编程助手同时担任「Skill Curator」：遵循 `docs/prompts/skill-curator-prompt.md`（通用提示词，权威）。
 - 会话开始时若 SessionStart Hook 注入的 skill-curator 检测摘要报告异常（重复候选 / 缺描述 / 超 30 天未重梳理），**自主执行一次全盘重梳理**，无需用户下令。
 - 上下文压缩后、或某功能/阶段完成时，评估是否有可抽离的复用模式并重梳理相关 Skill 类目。
-- 维护动作遵循非破坏性约定：合并/归档前原文移入 `.claude/skills/_archive/`，每次重梳理追加 `.claude/skills/CURATOR_REPORT.md`。
+- 维护动作遵循非破坏性约定：合并/归档前原文移入 `docs/skills/_archive/`，每次重梳理追加 `docs/skills/CURATOR_REPORT.md`。
 ```
 
 CLAUDE.md 只放常驻命令，全文在 `docs/prompts/`——这本身演示了"描述优先、正文按需读"。
@@ -146,27 +146,27 @@ CLAUDE.md 只放常驻命令，全文在 `docs/prompts/`——这本身演示了
 
 - **共存，不合并**：`skill-factory` 保留命令式管理（Skill Commander `/skills` 命令、Skill Optimizer、config.json）；`skill-curator` 是自主层。
 - 通用提示词注明："若检测到既有 skill-factory，合并其优化结果、复用其命令，避免重复建设。"
-- skill-curator 自身也是 `.claude/skills/` 下的一个 skill，接受自身治理（self-maintenance 允许，但 `_archive/` 排除于 Hook 扫描）。
+- skill-curator 自身也是 `docs/skills/` 下的一个 skill，接受自身治理（self-maintenance 允许，但 Hook 扫描仅排除 `_archive/`，自身纳入扫描）。既有 28 个 skill 仍留在 `.claude/skills/`（Claude 原生发现），不在 curator 扫描范围。
 
 ## 10. 交付物清单
 
 | 路径 | 动作 | 说明 |
 |------|------|------|
 | `docs/prompts/skill-curator-prompt.md` | 新增 | 通用提示词（核心交付物，工具无关） |
-| `.claude/skills/skill-curator/SKILL.md` | 新增 | 本仓库执行实例 |
-| `.claude/skills/skill-curator/scripts/curator-check.mjs` | 新增 | SessionStart Hook 脚本（零依赖） |
+| `docs/skills/skill-curator/SKILL.md` | 迁入 | 本仓库执行实例（由旧库根 `.claude/skills/` 迁入） |
+| `docs/skills/skill-curator/scripts/curator-check.mjs` | 迁入 | SessionStart Hook 脚本（零依赖，由旧库根迁入） |
 | `.claude/CLAUDE.md` | 修改（现为空） | 常驻命令 + 指向通用提示词 |
 | `.claude/settings.json` | 修改 | 加 `hooks.SessionStart` |
 | `docs/superpowers/specs/2026-08-30-skill-curator-design.md` | 新增 | 本设计文档 |
 
-**不改动**：`src/`（Electron 代码）、`.claude/skills/skill-factory/`、既有 28 个 skill 内容。
+**不改动**：`src/`（Electron 代码）、`.claude/skills/skill-factory/`、既有 28 个 skill（位置与内容均不动）。
 
 ## 11. 验收标准
 
 - [ ] 新开 Claude Code 会话：SessionStart Hook 注入 skill-curator 检测摘要；正常时一行提醒，异常时列出候选。
 - [ ] 人为制造重复描述/缺描述/超 30 天未重梳理：Hook 摘要正确报出候选。
-- [ ] 对用户说"整理 skill 库"（或会话开始摘要异常）→ AI 自主执行非破坏性重梳理 → 追加 `CURATOR_REPORT.md` → 归档内容在 `_archive/` 可恢复 → `.curator-state.json` 的 `lastFullReorg` 更新。
-- [ ] `node .claude/skills/skill-curator/scripts/curator-check.mjs` 手动运行无错误、输出符合格式。
+- [ ] 对用户说"整理 skill 库"（或会话开始摘要异常）→ AI 自主执行非破坏性重梳理 → 追加 `CURATOR_REPORT.md` → 归档内容在 `docs/skills/_archive/` 可恢复 → `.curator-state.json` 的 `lastFullReorg` 更新。
+- [ ] `node docs/skills/skill-curator/scripts/curator-check.mjs` 手动运行无错误、输出符合格式。
 - [ ] 全流程除首次安装外无需任何人工命令触发。
 - [ ] `git status` 只含本设计交付物改动。
 

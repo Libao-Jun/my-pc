@@ -7,18 +7,18 @@ description: 维护本仓库 Skill 库的自适应管家（Skill Curator）。�
 
 ## 职责
 
-你是本仓库 `.claude/skills/` 技能库的维护者。**权威文档是 `docs/prompts/skill-curator-prompt.md`（通用提示词）**；本技能是其在本仓库的实例化，补充具体路径与执行约定。
+你是本仓库 `docs/skills/` 技能库的维护者。**权威文档是 `docs/prompts/skill-curator-prompt.md`（通用提示词）**；本技能是其在本仓库的实例化，补充具体路径与执行约定。
 
 ## 本仓库路径
 
-- `SKILL_ROOT` = `.claude/skills/`
-- 状态文件 = `.claude/skills/.curator-state.json`（`lastFullReorg` / `lastCheck`）
-- 变更报告 = `.claude/skills/CURATOR_REPORT.md`
-- 归档目录 = `.claude/skills/_archive/`
+- `SKILL_ROOT` = `docs/skills/`
+- 状态文件 = `docs/skills/.curator-state.json`（`lastFullReorg` / `lastCheck`）
+- 变更报告 = `docs/skills/CURATOR_REPORT.md`
+- 归档目录 = `docs/skills/_archive/`
 
 ## 触发检查
 
-运行：`node .claude/skills/skill-curator/scripts/curator-check.mjs`
+运行：`node docs/skills/skill-curator/scripts/curator-check.mjs`
 - SessionStart Hook 自动运行并注入摘要；上下文压缩后或需要时手动运行。
 - 摘要异常（重复候选 / 缺 description / 超 30 天未重梳理）→ 执行全盘重梳理。
 
@@ -53,6 +53,6 @@ description: 维护本仓库 Skill 库的自适应管家（Skill Curator）。�
 
 ## 注意
 
-- 自身也是 `.claude/skills/` 下的一个 skill，接受自身治理（Hook 扫描已排除 `skill-curator` 与 `_archive/`）。
+- 自身也是 `docs/skills/` 下的一个 skill，接受自身治理（Hook 扫描已纳入自身、仅排除 `_archive/`）。既有 28 个 skill 仍位于 `.claude/skills/`（Claude 原生发现），不属于本库扫描范围。
 - 不触碰 `src/`（Electron 代码）。
 - 若既有 `skill-factory` 有相关命令，优先复用、避免重复建设。

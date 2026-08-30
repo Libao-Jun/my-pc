@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 // skill-curator 检测脚本：扫描 SKILL_ROOT/*/SKILL.md，输出检测摘要并更新状态。
 // 零依赖（Node 22 内置 fs/path）。作为 SessionStart Hook 挂载；亦可手动运行。
-// 用法: node .claude/skills/skill-curator/scripts/curator-check.mjs [SKILL_ROOT]
+// 用法: node docs/skills/skill-curator/scripts/curator-check.mjs [SKILL_ROOT]
 'use strict'
 
 import fs from 'node:fs'
 import path from 'node:path'
 
-const SKILL_ROOT = process.argv[2] ?? '.claude/skills'
+const SKILL_ROOT = process.argv[2] ?? 'docs/skills'
 const STATE_FILE = path.join(SKILL_ROOT, '.curator-state.json')
 const MAX_SIZE_BYTES = 8 * 1024
 const STALE_DAYS = 30
+const MAX_DUPS = 5 // 重复候选最多展示条数（防样板噪音刷屏）
+const BOILERPLATE_FREQ = 3 // 共享短语出现在 ≥3 个 skill 视为样板，忽略
+const FUNCTION_WORDS = new Set(
+  'the a an this that these those when whenever should use uses used using user wants want wanted need needs needed ask asks asked for of to from with by or and in on at as is are was were be been it you your their we they if then also can could will would shall may might must not no nor all any each every into over under than so about which who whom what where how why both either neither until while because'.split(' ')
+)
 
 function readState() {
   try {
@@ -72,31 +77,54 @@ function levenshtein(a, b) {
   return dp[m][n]
 }
 
-// 返回两 description 共享的核心短语（≥6 中文字符串 或 ≥12 字符英文词序列）；无则 null
-function sharedPhrase(da, db) {
-  const ca = da.replace(/[^\u4e00-\u9fff]/g, ' ')
-  const cb = db.replace(/[^\u4e00-\u9fff]/g, ' ')
-  for (const run of ca.split(' ').filter((s) => s.length >= 6)) {
-    if (cb.includes(run)) return run
+// 提取 description 的全部候选短语：≥6 中文字符串 + ≥12 字符英文词序列（小写归一）
+function extractPhrases(desc) {
+  const text = desc.toLowerCase()
+  const out = []
+  for (const run of text.replace(/[^\u4e00-\u9fff]/g, ' ').split(' ').filter((s) => s.length >= 6)) {
+    out.push(run)
   }
-  const ea = da.replace(/[^a-zA-Z0-9 -]/g, ' ')
-  const eb = db.replace(/[^a-zA-Z0-9 -]/g, ' ')
-  const toks = ea.split(' ').filter((t) => t.length > 0)
+  const toks = text.replace(/[^a-z0-9 -]/g, ' ').split(' ').filter((t) => t.length > 0)
   for (let i = 0; i < toks.length; i++) {
     let seq = ''
     for (let j = i; j < toks.length; j++) {
       seq = seq ? `${seq} ${toks[j]}` : toks[j]
-      if (seq.length >= 12 && eb.includes(seq)) return seq
+      if (seq.length >= 12) out.push(seq)
     }
   }
-  return null
+  return out
 }
 
-// 返回重复候选描述；不重复则 null
-function dupInfo(a, b) {
-  if (levenshtein(a.name, b.name) <= 2) return 'name 近似'
-  const phrase = sharedPhrase(a.description, b.description)
-  if (phrase) return `desc 含 "${phrase}"`
+// 全局短语频率：某短语被几个 skill 的 description 共享（跨库样板检测）
+function phraseFrequency(skills) {
+  const freq = new Map()
+  for (const s of skills) {
+    const seen = new Set(extractPhrases(s.description))
+    for (const p of seen) freq.set(p, (freq.get(p) ?? 0) + 1)
+  }
+  return freq
+}
+
+// 样板判定：全局出现 ≥3 个 skill，或短语内无内容词（全为功能词）。纯中文短语仅凭频率判样板。
+function isBoilerplate(phrase, freq) {
+  if ((freq.get(phrase) ?? 0) >= BOILERPLATE_FREQ) return true
+  const words = phrase.split(/[^a-z0-9]+/).filter(Boolean)
+  if (words.length === 0) return false
+  return !words.some((w) => w.length >= 4 && !FUNCTION_WORDS.has(w))
+}
+
+// 返回重复候选描述；不重复则 null。共享短语取最长匹配（优先特指核心，而非功能词前缀）
+function dupInfo(a, b, freq) {
+  if (a.name && b.name && levenshtein(a.name, b.name) <= 2) return 'name 近似'
+  const pa = new Set(extractPhrases(a.description))
+  const pb = [...new Set(extractPhrases(b.description))]
+  let best = null
+  for (const p of pb) {
+    if (pa.has(p) && !isBoilerplate(p, freq)) {
+      if (!best || p.length > best.length) best = p
+    }
+  }
+  if (best) return `desc 含 "${best}"`
   return null
 }
 
@@ -107,17 +135,28 @@ function main() {
   }
   const state = readState()
   const dirs = fs.readdirSync(SKILL_ROOT, { withFileTypes: true })
-    .filter((d) => d.name !== '_archive' && d.name !== 'skill-curator')
+    .filter((d) => d.name !== '_archive')
     .map((d) => d.name)
-    .filter((name) => fs.statSync(path.join(SKILL_ROOT, name)).isDirectory())
+    .filter((name) => {
+      // 悬空符号链接/无权限：try/catch 跳过，不让 SessionStart Hook 崩
+      try {
+        return fs.statSync(path.join(SKILL_ROOT, name)).isDirectory()
+      } catch {
+        return false
+      }
+    })
     .sort()
 
   const skills = []
   let totalBytes = 0
   for (const dir of dirs) {
     const file = path.join(SKILL_ROOT, dir, 'SKILL.md')
-    if (!fs.existsSync(file)) continue
-    const text = fs.readFileSync(file, 'utf8')
+    let text
+    try {
+      text = fs.readFileSync(file, 'utf8')
+    } catch {
+      continue // 不可读（权限/悬空链接）：跳过
+    }
     const { name, description } = parseFrontmatter(text)
     const bytes = Buffer.byteLength(text, 'utf8')
     totalBytes += bytes
@@ -125,14 +164,23 @@ function main() {
   }
 
   const now = Date.now()
-  writeState({ lastFullReorg: state.lastFullReorg, lastCheck: new Date(now).toISOString() })
+  try {
+    writeState({ lastFullReorg: state.lastFullReorg, lastCheck: new Date(now).toISOString() })
+  } catch {
+    // 状态写入失败不阻塞检测摘要
+  }
 
   const big = skills.filter((s) => s.bytes > MAX_SIZE_BYTES).sort((a, b) => b.bytes - a.bytes).slice(0, 3)
+  const freq = phraseFrequency(skills)
   const dups = []
+  outer:
   for (let i = 0; i < skills.length; i++) {
     for (let j = i + 1; j < skills.length; j++) {
-      const info = dupInfo(skills[i], skills[j])
-      if (info) dups.push(`${skills[i].dir}↔${skills[j].dir}（${info}）`)
+      const info = dupInfo(skills[i], skills[j], freq)
+      if (info) {
+        dups.push(`${skills[i].dir}↔${skills[j].dir}（${info}）`)
+        if (dups.length >= MAX_DUPS) break outer
+      }
     }
   }
   const missing = skills.filter((s) => s.description.length < 8).map((s) => s.dir)

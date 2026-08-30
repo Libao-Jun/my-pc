@@ -32,4 +32,6 @@ node_modules/
 Thumbs.db
 
 # skill-curator 运行时状态
+docs/skills/.curator-state.json
+# 兼容：手动/验证对旧库根 .claude/skills 运行检测产生的状态
 .claude/skills/.curator-state.json

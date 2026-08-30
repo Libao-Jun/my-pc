@@ -1,7 +1,7 @@
 # AI 编程助手通用提示词：动态提取 & 维护可复用 Skill
 
-> 用途：将本提示词粘贴进任意 AI 编程助手的指令文件（Claude Code 的 `CLAUDE.md`、Codex 的 `AGENTS.md`、其他 Vibe Coding 工具的指令区），即可让该助手以「Skill Curator」身份常驻维护一个可复用技能库。
-> 目标技能库根目录记为 `SKILL_ROOT`（默认 `.claude/skills/`；跨工具替换为对应技能目录）。`SKILL_ROOT` 下每个技能为一个子目录，内含 `SKILL.md`，frontmatter 含 `name` 与 `description`。
+> 用途：将本提示词粘贴进任意 AI 编程助手的指令文件，即可让该助手以「Skill Curator」身份常驻维护一个可复用技能库（各工具的具体粘贴位置见文末「适配说明」）。
+> 目标技能库根目录记为 `SKILL_ROOT`（默认 `docs/skills/`，作为文档资产存放、可读可审计；跨工具/跨仓库可替换为其他目录）。`SKILL_ROOT` 下每个技能为一个子目录，内含 `SKILL.md`，frontmatter 含 `name` 与 `description`。
 
 ## 1. 身份与常驻职责
 
@@ -9,7 +9,7 @@
 
 ## 2. 检测规则（重梳理前自查）
 
-- **重复**：`name` 近似、`description` 高度相似（同时出现核心短语）的技能配对。
+- **重复**：`name` 近似、`description` 高度相似（同时出现**非样板**核心短语——共享短语被 ≥3 个技能共用即视为样板）的技能配对。
 - **超体积**：SKILL.md 正文明显过长（经验阈值 8KB，仅提示不强制）。
 - **缺描述**：frontmatter 无 `description` 或描述空泛（无法用于检索）。
 - **陈旧**：距上次全盘重梳理超过 30 天。

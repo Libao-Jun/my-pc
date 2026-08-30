@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/skills/skill-curator/scripts/curator-check.mjs"
+            "command": "node docs/skills/skill-curator/scripts/curator-check.mjs"
           }
         ]
       }
