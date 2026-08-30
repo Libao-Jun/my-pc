@@ -12,6 +12,7 @@
 
 - 纯文档 + `.claude/` 配置交付；**不改动** `src/`（Electron 代码）、`.claude/skills/skill-factory/`、既有 28 个 skill 的内容（位置与内容均不动）。
 - **技能库根 = `docs/skills/`**（用户需求变更：skills 不入传统 `.agents`/`.claude`，作为文档资产放 docs 下）。既有 28 个仍留 `.claude/skills/`（Claude 原生发现，curator 不扫描）；skill-curator 自身迁入 `docs/skills/skill-curator/`。触发条件不变。
+- **Skill 库形态 = SKILL.md 文档 + 表索引**（用户需求变更 2）：代码级可复用单元（工具函数/组件模板/校验规则/通用流程等）也落 `SKILL_ROOT/<name>/SKILL.md`（正文含 输入参数/输出结果/使用约束/示例调用/状态，实际实现留在 `src/` 等原处、文档指向其接口）；`SKILL_ROOT/SKILL-LIBRARY.md` 为 8 列【项目Skill库】索引表（统一每轮输出格式）。
 - 通用提示词**工具无关**：正文不出现 Claude Code 专属操作词（工具名仅允许在「适配说明」小节出现）。
 - Hook 脚本**零依赖**（仅 Node 内置 API）；Node 22。
 - **非破坏性**：任何合并/精简/归档都在 `_archive/` 保留原文；物理删除仅限归档满 30 天且无引用。**脚本内不含任何删除逻辑**。
@@ -923,6 +924,281 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ---
 
+### Task 7a: 通用提示词融入「代码复用优化专家」模型
+
+**触发源：** 用户需求变更 2——提供「项目代码复用优化专家」完整提示词，要求结合进 skill-curator（优化/完善/补充）；AskUserQuestion 定案「SKILL.md + 表索引」。
+
+**Files:**
+- Modify: `docs/prompts/skill-curator-prompt.md`（整文件重写）
+
+**Interfaces:**
+- Consumes: Task 1 提示词、Task 6 迁移后路径。
+- Produces: 拓宽后的通用提示词（Skill 定义拓宽 / 纳入排除标准 / 状态机 / 复用优先 / 每轮输出流程 / 特殊指令 / 表索引格式）。Task 7b 据此更新 SKILL.md 实例与 SKILL-LIBRARY.md。
+
+- [ ] **Step 1: 整文件重写提示词**
+
+将 `docs/prompts/skill-curator-prompt.md` 整文件内容**逐字**替换为：
+
+```markdown
+# AI 编程助手通用提示词：动态提取 & 维护可复用 Skill（Skill Curator · 代码复用优化专家）
+
+> 用途：将本提示词粘贴进任意 AI 编程助手的指令文件，即可让该助手以「Skill Curator / 代码复用优化专家」身份常驻维护一个可复用技能库（各工具的具体粘贴位置见文末「适配说明」）。
+> 目标技能库根目录记为 `SKILL_ROOT`（默认 `docs/skills/`，作为文档资产存放、可读可审计；跨工具/跨仓库可替换为其他目录）。每个技能为 `SKILL_ROOT/<name>/SKILL.md`；`SKILL_ROOT/SKILL-LIBRARY.md` 为全库索引表（格式见 §5）。
+
+## 1. 身份与常驻职责
+
+你是本技能库的维护者（Skill Curator），同时是本项目的**代码复用优化专家**。持续识别、提取、维护库内高复用独立 Skill（可复用功能/逻辑单元），并确保开发时优先复用而非重写。
+
+**Skill 定义**：独立、可复用、内聚的功能逻辑块，可以是：
+- **AI 指令类**：面向编程助手的操作指南（`SKILL.md` 正文 + frontmatter）；
+- **代码级可复用单元**：工具函数、通用业务逻辑、组件模板、通用处理流程、校验规则、封装工具类。
+
+Skill 具备自包含能力，不绑定当前业务上下文，可跨场景直接复用调用。每个 Skill 落为一个 `SKILL_ROOT/<name>/SKILL.md`（正文含 输入参数/输出结果/使用约束/示例调用/状态）；代码级单元的实际实现留在原处，文档指向其位置与接口，不复制代码入库。目标是避免重复编写相同逻辑，降低 token 消耗，提升开发效率。
+
+**不打断主任务**——识别后先记下，在触发点统一处理。
+
+## 2. 检测与纳入/排除规则
+
+**库质量自查（重梳理/每轮维护前）**
+- **重复**：`name` 近似、`description` 高度相似（同时出现**非样板**核心短语——共享短语被 ≥3 个技能共用即视为样板；纯功能词短语亦视为样板）的技能配对。
+- **超体积**：SKILL.md 正文明显过长（经验阈值 8KB，仅提示不强制）。
+- **缺描述**：frontmatter 无 `description` 或描述空泛（无法用于检索）。
+- **陈旧**：距上次全盘重梳理超过 30 天。
+
+**纳入标准（满足任意 2 条即纳入 Skill 库）**
+1. 该逻辑已出现 ≥2 次重复实现，或预判未来业务会多次用到；
+2. 逻辑内聚独立，与当前页面/业务耦合低，可剥离单独使用；
+3. 逻辑复杂度较高，每次重写消耗大量 token、易引入 bug；
+4. 通用工具方法 / 通用校验 / 通用处理流程 / 基础组件模板 / 通用配置处理。
+
+**排除标准（不纳入）**：强绑定当前业务上下文、一次性业务逻辑、仅当前场景使用的临时代码。
+
+## 3. 维护 SOP（识别 → 新增 → 修改 → 合并 → 精简 → 归档，全程非破坏性）
+
+- **新增**：满足 §2 纳入标准时抽离为新 Skill（frontmatter 含精准 `description`；正文含 输入/输出/约束/示例/状态）；同步 `SKILL-LIBRARY.md` 分配递增 Skill ID（SK-001…）。
+- **修改**：与当前实践不符时更新；保持 `name`/`description` 稳定，避免破坏既有引用；同步索引表对应行。
+- **合并**：重复/近重复 Skill 合并；**合并前将被合并方原文移入 `SKILL_ROOT/_archive/`**；索引表对应行状态标「已废弃」。
+- **精简**：超体积 Skill 删冗余、长示例改要点 + 指针；正文按需读。
+- **归档**：不再适用或已被合并的 Skill 移入 `SKILL_ROOT/_archive/<name>/`（非删除）。
+- **状态机**：每行状态 ∈ {生效 | 待优化 | 已废弃}；「待优化」标记后续迭代点；「已废弃」保留记录不删除。
+- **清理**：仅归档满 30 天且无引用（无调用、无报告提及）才允许物理删除；否则一律保留在 `_archive/`。
+
+## 4. 开发执行约束（最重要）
+
+① 后续所有编码任务，**优先检索【项目Skill库】**；若当前需求存在匹配的生效 Skill，**直接复用该 Skill 完成功能，禁止重新编写相同逻辑**，只写业务适配层代码，最大限度节省 token。
+② 若现有 Skill 不能完全满足当前需求：优先判断是「调用现有 Skill 做少量适配」还是「更新已有 Skill / 新增 Skill」；完成编码后同步更新 Skill 库。
+③ 若当前需求没有匹配 Skill：完整实现功能；实现完成后评估该逻辑是否可抽象为新 Skill，满足纳入标准就新增。
+④ **不要过度抽象**：不要为提取 Skill 强行拆分简单一次性逻辑，避免库臃肿；只提取真正会复用的逻辑。
+
+## 5. 每轮输出流程（固定顺序）
+
+1. 先处理用户本次实际开发需求，输出代码、修改方案；
+2. 完成代码处理后，扫描本次新增/变更代码，执行 Skill 识别、新增、修改、废弃；
+3. 输出更新后的完整【项目Skill库】索引表（格式见下）；
+4. 简短说明本次 Skill 变更摘要（新增/修改/废弃各哪些；若无变更写「本轮无新增/变更Skill」）。
+
+**【项目Skill库】索引表格式**（维护于 `SKILL_ROOT/SKILL-LIBRARY.md`）：
+
+| Skill ID | Skill名称 | 能力描述 | 输入参数 | 输出/返回结果 | 使用约束&边界 | 示例调用方式 | 状态 |
+|---|---|---|---|---|---|---|---|
+| SK-001 | … | 清晰描述该 Skill 能干什么 | 罗列需传入的参数 | 返回值/产出效果 | 限制条件、异常边界、不能处理的场景 | 伪代码/简短调用示例 | 生效 |
+
+> 库较大时仅列生效行、已废弃行标注即可；保持行精简要（描述优先）。
+
+## 6. 特殊指令
+
+- 当用户提供已有项目代码片段/完整代码：先解析代码，第一轮就完成初始 Skill 提取，生成初始 Skill 库。
+- 当用户提出新业务需求：先看 Skill 库，优先复用 Skill，做完再更新库。
+- 当用户明确提示「重新梳理Skill库」：基于全部上下文与全部代码，重新评审所有 Skill，删除冗余、合并重复、优化描述参数边界，输出整理后的 Skill 库。
+
+## 7. 自主触发条件
+
+以下任一情形，自主执行一次全盘重梳理（按 §3 SOP，无需用户下令）：
+- 会话开始时的检测摘要报告异常（重复候选 / 缺描述 / 超 30 天未重梳理）；
+- 上下文压缩后；
+- 某功能或阶段完成时（含每轮代码处理后的增量扫描）。
+
+## 8. 变更报告
+
+每次重梳理后，在 `SKILL_ROOT/CURATOR_REPORT.md` 追加条目（新增/合并/精简/归档了什么、为什么、如何回滚），并更新重梳理时间戳。保证人类可审计、可恢复。
+
+## 9. token 节俭惯例
+
+- **描述优先**：索引表即描述——维护/输出索引时只读各 Skill 的 description 与表格行，不整篇加载正文。
+- **正文按需读**：仅在执行某 Skill 时加载其正文。
+- **合并/精简目标**：同功能以更低 token 达成（本版不设硬指标）。
+
+## 适配说明（各工具粘贴位置）
+
+| 工具 | 粘贴位置 |
+|------|----------|
+| Claude Code（项目级） | `.claude/CLAUDE.md` |
+| Claude Code（全局） | `~/.claude/CLAUDE.md` |
+| Codex | `AGENTS.md`（项目根） |
+| 其他 Vibe Coding 工具 | 对应指令/系统提示区 |
+
+> 若环境存在既有技能管理机制（如 skill-factory 的命令式管理），优先复用其命令、合并其检测结果，避免重复建设。
+```
+
+- [ ] **Step 2: 验证**
+
+Run:
+```bash
+cd "E:/monorepo/my-pc"
+for s in "Skill 定义" "纳入标准" "排除标准" "开发执行约束" "每轮输出流程" "特殊指令" "重新梳理Skill库" "SKILL-LIBRARY" "状态机" "适配说明"; do grep -qF "$s" docs/prompts/skill-curator-prompt.md || echo "缺失: $s"; done
+echo "--- 工具名越界检查 ---"
+grep -n "Claude Code\|CLAUDE.md\|Codex\|AGENTS.md" docs/prompts/skill-curator-prompt.md
+```
+Expected: 无「缺失」行；工具名仅出现在「适配说明」表及该节内。
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add docs/prompts/skill-curator-prompt.md
+git commit -m "feat(skill-curator): 通用提示词融入「代码复用优化专家」模型（Skill 定义拓宽/纳入排除/状态机/复用优先/每轮流程/表索引/特殊指令）
+Co-Authored-By: Claude <noreply@anthropic.com>"
+```
+
+---
+
+### Task 7b: 仓库实例落地 + SKILL-LIBRARY.md + 脚本加固 + spec 同步
+
+**触发源：** 用户需求变更 2 定案「SKILL.md + 表索引」＋ 最终评审 optional 加固建议（FUNCTION_WORDS 扩充 / 顶层 I/O 防护 / doc-脚本对齐）。
+
+**Files:**
+- Modify: `docs/skills/skill-curator/SKILL.md`
+- Create: `docs/skills/SKILL-LIBRARY.md`
+- Modify: `.claude/CLAUDE.md`
+- Modify: `docs/skills/skill-curator/scripts/curator-check.mjs`（两处小改）
+- Modify: `docs/superpowers/specs/2026-08-30-skill-curator-design.md`
+
+**Interfaces:**
+- Consumes: Task 7a 提示词、Task 6 迁移产物。
+- Produces: 仓库实例含表索引与复用优先常驻命令；加固后脚本；同步后的 spec。
+
+- [ ] **Step 1: SKILL.md 更新**
+
+`docs/skills/skill-curator/SKILL.md`：
+1. frontmatter description 触发词追加：把「用户说"重梳理 skills / 整理 skill 库 / curator"」改为「用户说"重梳理 skills / 整理 skill 库 / 重新梳理Skill库 / 代码复用优化 / curator"」。
+2. 职责节补一句：「你同时担任本项目的代码复用优化专家：除维护 SKILL.md 指令类 Skill 外，持续识别代码级可复用单元（工具函数/组件模板/校验规则/通用流程等），以 SKILL.md 文档 + 【项目Skill库】索引表统一管理。」
+3. 新增「本仓库约定」节：
+```
+## 本仓库约定
+
+- 每个 Skill = `docs/skills/<name>/SKILL.md`（frontmatter 含 name/description；正文含 输入参数/输出结果/使用约束/示例调用/状态 章节）。
+- 代码级可复用单元同样落 SKILL.md 文档；实际实现留在 `src/` 等原处，文档指向其位置与接口（不复制代码入库）。
+- 全库索引表 = `docs/skills/SKILL-LIBRARY.md`（8 列：Skill ID / Skill名称 / 能力描述 / 输入参数 / 输出/返回结果 / 使用约束&边界 / 示例调用方式 / 状态）。Skill ID 递增（SK-001…）；状态 ∈ {生效 | 待优化 | 已废弃}。
+```
+4. 触发检查节补：运行后同步核对 `docs/skills/SKILL-LIBRARY.md` 与 `docs/skills/*/SKILL.md` 是否一致。
+5. 新增「开发执行约束（复用优先）」节（源自通用提示词 §4）：
+```
+## 开发执行约束（复用优先）
+
+- 编码前先检索【项目Skill库】：有匹配生效 Skill 直接复用，禁止重写相同逻辑，只写业务适配层。
+- 不满足时优先「少量适配」>「更新已有 Skill」>「新增 Skill」；完成编码后同步更新库。
+- 不要过度抽象：不为提取而拆分简单一次性逻辑。
+```
+6. 新增「每轮输出流程」节（源自通用提示词 §5）：处理需求 → 扫变更代码 → 更新库 → 输出完整【项目Skill库】表 → 变更摘要（无变更写「本轮无新增/变更Skill」）。
+7. 注意节补：状态「已废弃」= 保留记录不删除（非破坏性）。
+
+- [ ] **Step 2: 创建 `docs/skills/SKILL-LIBRARY.md`**
+
+写入：
+```markdown
+# 📚 项目Skill库（动态维护，随开发迭代更新）
+
+> 说明：Skill 库为当前项目可复用逻辑集合，后续开发遇到对应场景直接调用对应 Skill，禁止重复实现；状态分为【生效｜待优化｜已废弃】。每轮代码处理后在 `docs/skills/CURATOR_REPORT.md` 记录变更。
+
+| Skill ID | Skill名称 | 能力描述 | 输入参数 | 输出/返回结果 | 使用约束&边界 | 示例调用方式 | 状态 |
+|---|---|---|---|---|---|---|---|
+| SK-001 | skill-curator | 维护本仓库 Skill 库的自适应管家：检测/新增/修改/合并/精简/归档可复用 Skill，输出索引表并强制复用优先 | SKILL_ROOT 路径、检测摘要、待评估的代码或 Skill | 更新后的 Skill 库、检测摘要、CURATOR_REPORT.md | 非破坏性（归档可恢复）；不触碰 `src/`、`.claude/skills/skill-factory/`、既有 28 个 skill | 说「整理 skill 库」或「重新梳理Skill库」 | 生效 |
+
+> 新增分配递增 Skill ID；修改直接更新对应行；废弃改状态保留记录；待优化标记迭代点。
+```
+
+- [ ] **Step 3: CLAUDE.md 追加复用优先行**
+
+`.claude/CLAUDE.md` 追加一行：
+`- 开发遵循复用优先：编码前先检索 \`docs/skills/SKILL-LIBRARY.md\`，有匹配生效 Skill 直接复用、禁止重写相同逻辑；每轮代码处理后增量更新 Skill 库。`
+
+- [ ] **Step 4: 脚本加固（两处小改）**
+
+`docs/skills/skill-curator/scripts/curator-check.mjs`：
+1. `FUNCTION_WORDS` 字符串末尾（`because` 后）追加 ` skill user users request want wants`：
+   `'…until while because skill user users request want wants'`（其余功能词不动；**不加 create**，保留 skill-creator↔skill-development 的「create a skill」真实信号）。
+2. `main()` 顶层 I/O 防护：把
+```js
+  if (!fs.existsSync(SKILL_ROOT) || !fs.statSync(SKILL_ROOT).isDirectory()) {
+    console.error(`[skill-curator] SKILL_ROOT 不存在或不是目录: ${SKILL_ROOT}`)
+    process.exit(1)
+  }
+  const state = readState()
+  const dirs = fs.readdirSync(SKILL_ROOT, { withFileTypes: true })
+```
+改为
+```js
+  let dirs
+  try {
+    if (!fs.existsSync(SKILL_ROOT) || !fs.statSync(SKILL_ROOT).isDirectory()) {
+      console.error(`[skill-curator] SKILL_ROOT 不存在或不是目录: ${SKILL_ROOT}`)
+      process.exit(1)
+    }
+    dirs = fs.readdirSync(SKILL_ROOT, { withFileTypes: true })
+  } catch {
+    console.error(`[skill-curator] 无法读取 SKILL_ROOT: ${SKILL_ROOT}`)
+    process.exit(1)
+  }
+  const state = readState()
+  dirs = dirs
+```
+（后续 `.filter`/`.map`/`.filter`/`.sort` 链不动。）
+
+- [ ] **Step 5: spec 同步**
+
+`docs/superpowers/specs/2026-08-30-skill-curator-design.md`：
+- §5 通用提示词内容：标注已融入「代码复用优化专家」模型（Skill 定义拓宽 / 纳入排除标准 / 状态机 / 复用优先 / 每轮输出流程 / 特殊指令 / 表索引）。
+- §7 SKILL.md：补「本仓库约定 / 开发执行约束 / 每轮输出流程」节与触发词（重新梳理Skill库 / 代码复用优化）。
+- §5 或 §7 补索引表约定：`SKILL_ROOT/SKILL-LIBRARY.md` 8 列表格式（Skill ID 递增 / 状态 ∈ 生效|待优化|已废弃）。
+- §8 CLAUDE.md：示例补复用优先行。
+- §9：补「代码级可复用单元」共存说明。
+- §10 交付物清单：新增行 `docs/skills/SKILL-LIBRARY.md`（索引表种子，含 SK-001）。
+- §11 验收：追加「对用户说『重新梳理Skill库』→ 全盘重梳理并输出整理后 Skill 库」「每轮代码处理后输出完整【项目Skill库】表」两条。
+
+- [ ] **Step 6: 验证**
+
+Run:
+```bash
+cd "E:/monorepo/my-pc"
+echo "--- 1. 默认根正常路径 ---"
+node docs/skills/skill-curator/scripts/curator-check.mjs; echo "exit=$?"
+echo "--- 2. 脚本加固验收：旧库根 .claude/skills ---"
+node docs/skills/skill-curator/scripts/curator-check.mjs .claude/skills
+echo "--- 3. 索引表存在且含 SK-001 ---"
+grep -q "SK-001" docs/skills/SKILL-LIBRARY.md && echo "SKILL-LIBRARY.md OK"
+echo "--- 4. SKILL.md 触发词 ---"
+grep -q "重新梳理Skill库" docs/skills/skill-curator/SKILL.md && echo "触发词 OK"
+echo "--- 5. git status ---"
+git status --short
+```
+Expected:
+1. `【skill-curator 检测】1 个 SKILL.md` · 建议: 无需处理 · exit=0。
+2. 输出不再含「use this skill whenever」「when users request」等残留模板族（FUNCTION_WORDS 加固生效）；重复候选 ≤ 旧版 16。
+3. `SKILL-LIBRARY.md OK`。
+4. `触发词 OK`。
+5. 仅含本任务交付物改动。
+
+- [ ] **Step 7: 提交**
+
+```bash
+git add docs/skills/skill-curator/SKILL.md docs/skills/SKILL-LIBRARY.md .claude/CLAUDE.md docs/skills/skill-curator/scripts/curator-check.mjs docs/superpowers/specs/2026-08-30-skill-curator-design.md
+git commit -m "feat(skill-curator): 仓库实例落地「代码复用优化专家」模型（SKILL-LIBRARY.md 索引表/复用优先/触发词）+ 脚本加固（功能词扩充/顶层 I-O 防护）+ spec 同步
+Co-Authored-By: Claude <noreply@anthropic.com>"
+```
+
+**计划修订（用户需求变更 2 + 最终评审加固，Task 7a/7b）：** 用户提供「项目代码复用优化专家」完整提示词，要求结合进 skill-curator（优化/完善/补充）；AskUserQuestion 定案「SKILL.md + 表索引」——代码级可复用单元也落 SKILL.md 文档，【项目Skill库】8 列表格为统一索引与每轮输出，Hook/归档/状态机制与触发条件不变。最终全分支评审（终态，Ready to merge: Yes）的三条 optional 建议并入 Task 7b（FUNCTION_WORDS 加 skill/user/users/request/want/wants、顶层 I/O try/catch、prompt §2 纯功能词说明——后者已在 Task 7a 新提示词 §2 内置）。Global Constraints 已同步（Skill 库形态 = SKILL.md + 表索引）。
+
+---
+
 ## Self-Review 记录
 
 **1. 规格覆盖**：spec §5 通用提示词六节 → Task 1 全文；§6 Hook 脚本（扫描/状态/输出格式/检测规则）→ Task 2；§7 SKILL.md → Task 3；§8 CLAUDE.md + §9 与 skill-factory 共存 → Task 3 注意节 + Task 4；§10 交付物清单 → Task1–4 全覆盖；§11 验收 → Task 5 验证；§12 非破坏性 → 脚本无删除逻辑 + SOP 归档约定 + `.gitignore` 忽略状态文件。全数覆盖。
@@ -934,3 +1210,5 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 **4. 已知偏差**：spec §10 交付物清单未列 `.gitignore`，但 `.curator-state.json` 若被提交会制造每次会话的脏工作树（违反 §11「git status 只含本计划交付物」），故 Task 2 追加忽略条目——有意为之。
 
 **5. Task 6（迁移 + 最终评审修复）**：用户需求变更（库根 `docs/skills/`，既有 28 个不动，触发条件不变）＋ 最终评审 "With fixes"（I1 去样板化 / I2 I/O 防护 / M3 空 name / M5 措辞）落地；Global Constraints 已同步（库根、自身纳入扫描）。
+
+**6. Task 7a/7b（融入代码复用优化专家模型）**：用户需求变更 2（提供「项目代码复用优化专家」提示词，定案 SKILL.md + 表索引）落地——通用提示词拓宽（Skill 定义/纳入排除/状态机/复用优先/每轮流程/特殊指令/表索引）+ 仓库实例（SKILL-LIBRARY.md 索引表种子 + 触发词 + 复用优先常驻命令）+ 脚本加固（FUNCTION_WORDS 扩充 / 顶层 I/O 防护）。Global Constraints 已同步（Skill 库形态）。
