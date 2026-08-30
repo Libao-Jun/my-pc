@@ -109,8 +109,9 @@ export function computeWatermarkPlacements(
   const theta = (config.rotation * Math.PI) / 180
   const sy = height / n
   const sx = Math.max(textWidth * 1.6, sy)
-  const tan = Math.abs(Math.tan(theta))
-  const dx = tan > 1e-6 ? sy / tan : 0
+  const tan = Math.tan(theta)
+  // 带符号 tan：相邻行错位跟随文字倾斜方向（-45° 时斜线带与文字同向）。注：初稿 abs(|tan|) 方向相反，用户裁决改为带符号。
+  const dx = Math.abs(tan) > 1e-6 ? sy / tan : 0
   const halfCols = Math.ceil(width / sx / 2) + 1
 
   const out: WatermarkPlacement[] = []
