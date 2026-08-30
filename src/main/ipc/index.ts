@@ -6,6 +6,7 @@ import { registerFileIpc } from './file.ipc'
 import { registerResumeIpc } from './resume.ipc'
 import { registerSettingsIpc } from './settings.ipc'
 import { registerSystemIpc } from './system.ipc'
+import { registerWatermarkIpc } from './watermark.ipc'
 
 export function registerIpcHandlers(): void {
   registerAppIpc()
@@ -16,4 +17,5 @@ export function registerIpcHandlers(): void {
   registerSystemIpc()
   registerFileIpc()
   registerAdblockIpc()
+  registerWatermarkIpc()
 }
