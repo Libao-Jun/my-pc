@@ -16,10 +16,6 @@ import {
 const IMAGE_FILTER = { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] }
 const PDF_FILTER = { name: 'PDF', extensions: ['pdf'] }
 const VIDEO_FILTER = { name: '视频', extensions: ['mp4', 'mkv', 'mov', 'avi', 'wmv', 'flv', 'webm', 'ts', 'm4v'] }
-const ORIGINAL_FILTER = {
-  name: '原件',
-  extensions: [...IMAGE_FILTER.extensions, ...PDF_FILTER.extensions, ...VIDEO_FILTER.extensions]
-}
 
 function validateConfig(config: WatermarkConfig): void {
   if (typeof config !== 'object' || config === null) throw new AppError('VALIDATION_ERROR', '无效的水印配置')
@@ -56,16 +52,6 @@ export function registerWatermarkIpc(): void {
   ipcMain.handle('watermark:readBinary', async (_event, filePath: string) => {
     if (typeof filePath !== 'string' || !filePath) throw new AppError('VALIDATION_ERROR', '无效的文件路径')
     return readBinary(filePath)
-  })
-
-  // —— 预览用：合并类型单选原件 ——
-  ipcMain.handle('watermark:pickOriginal', async () => {
-    const result = await dialog.showOpenDialog({
-      title: '选择要预览水印效果的原件',
-      properties: ['openFile'],
-      filters: [ORIGINAL_FILTER]
-    })
-    return result.canceled ? null : result.filePaths[0]
   })
 
   ipcMain.handle('watermark:extractVideoFrame', async (_event, payload: { filePath: string; timeMs: number }) => {
