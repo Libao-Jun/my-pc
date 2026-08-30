@@ -562,9 +562,11 @@ Expected: 输出以 `【skill-curator 检测】` 开头且 exit=0；状态文件
 Run:
 ```bash
 cd "E:/monorepo/my-pc"
-node -e "const t=require('fs').readFileSync('.claude/skills/skill-curator/SKILL.md','utf8');const m=/^description:\s*([^\n]+)/.exec(t.split('---')[1]||'');if(!m)throw Error('无 description');const d=m[1];for(const kw of ['重梳理','skill','curator']){if(!d.includes(kw))console.log('触发词缺失: '+kw)}console.log('触发词检查完成');"
+node -e "const t=require('fs').readFileSync('.claude/skills/skill-curator/SKILL.md','utf8');const m=/^description:\s*([^\n]+)/m.exec(t.split('---')[1]||'');if(!m)throw Error('无 description');const d=m[1];for(const kw of ['重梳理','skill','curator']){if(!d.includes(kw))console.log('触发词缺失: '+kw)}console.log('触发词检查完成');"
 ```
 Expected: `触发词检查完成`（无触发词缺失输出）。
+
+**计划修订（Task 5 验证发现，提交 R5）：** 原命令正则 `^description:` 缺 `m` 标志——`t.split('---')[1]` 以 `\nname: …` 开头，`^`（无 `m`）只匹配字符串开头导致永远抛「无 description」。加 `m` 标志使 `^` 按行匹配后验证通过；SKILL.md 实际 description 含全部触发词（重梳理 / skill / curator）。
 
 - [ ] **Step 3: 人工 E2E 清单（本次由控制器/用户在新会话验证，非本任务可自动）**
 
