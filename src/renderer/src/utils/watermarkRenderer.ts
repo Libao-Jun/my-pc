@@ -15,8 +15,11 @@ export function drawWatermarkOn(
   ctx.fillStyle = '#808080'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  const textWidth = ctx.measureText(config.text).width
-  const placements = computeWatermarkPlacements(width, height, config, textWidth)
+  const metrics = ctx.measureText(config.text)
+  const textWidth = metrics.width
+  // 文本高度用于布局间距计算（旋转布局需按旋转后包围盒排布，防止相邻行重叠）；fallback 取 1.2em
+  const textHeight = Math.max(metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent, config.fontSize * 1.2)
+  const placements = computeWatermarkPlacements(width, height, config, textWidth, textHeight)
   for (const p of placements) {
     ctx.save()
     ctx.globalAlpha = config.opacity

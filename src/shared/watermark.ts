@@ -47,7 +47,8 @@ export function computeWatermarkPlacements(
   width: number,
   height: number,
   config: WatermarkConfig,
-  textWidth = 0
+  textWidth = 0,
+  textHeight = config.fontSize * 1.4
 ): WatermarkPlacement[] {
   if (config.layout === 'single') return [positionAnchor(width, height, config)]
 
@@ -55,12 +56,21 @@ export function computeWatermarkPlacements(
   if (!Number.isFinite(n) || n < 1) return [positionAnchor(width, height, config)]
 
   const theta = (config.rotation * Math.PI) / 180
-  const sy = height / n
-  const sx = Math.max(textWidth * 1.6, sy)
+  const cos = Math.abs(Math.cos(theta))
+  const sin = Math.abs(Math.sin(theta))
+  // 文本旋转后的世界包围盒（水平/垂直投影尺寸）。间距必须容纳它，
+  // 否则旋转 ≠0 时相邻行文本沿阅读方向被拉近（间距 sy/|sinθ| < textWidth），行合并成连续斜线。
+  const rotatedW = textWidth * cos + textHeight * sin
+  const SAFETY = 1.05
+  // 行距：容纳「未旋转时的文本高」（密排小页 0° 也可能重叠）与「旋转后沿阅读方向相邻行的文本长」
+  const sy = Math.max(height / n, textHeight * SAFETY, textWidth * sin * SAFETY)
+  // 列距：容纳旋转后水平投影宽
+  const sx = Math.max(textWidth * 1.6, sy, rotatedW * SAFETY)
   const tan = Math.tan(theta)
   // 带符号 tan：让相邻行错位方向跟随文字倾斜方向（旋转 -45° 时斜线带与文字同向，经典防伪水印外观）
   const dx = Math.abs(tan) > 1e-6 ? sy / tan : 0
-  const halfCols = Math.ceil(width / sx / 2) + 1
+  // 行位移 r·dx 使各行横向偏移：列数须覆盖「页宽 + 两侧最大位移」，保证旋转布局仍铺满页面
+  const halfCols = Math.ceil((width + 2 * (n - 1) * Math.abs(dx)) / sx / 2) + 1
 
   const out: WatermarkPlacement[] = []
   for (let r = 0; r < n; r++) {

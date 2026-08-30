@@ -39,4 +39,47 @@ assert(ys8.size === 8, 'multi8 应有 8 条 y 带，实际 ' + ys8.size)
 assert(new Set(computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi2' }, 80).map((p) => Math.round(p.y))).size === 2, 'multi2 应为 2 条带')
 assert(new Set(computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi6' }, 80).map((p) => Math.round(p.y))).size === 6, 'multi6 应为 6 条带')
 
+// —— 回归：布局 + 旋转不得产生文本重叠 ——
+// 旋转后的文本按宽 textW / 高 textH 的矩形，绕其中心旋转 rotation 度绘制；
+// 用 SAT 判定任意两个矩形是否相交。历史缺陷：间距只按未旋转宽度计算，
+// 旋转 ≠0 时相邻行文本沿阅读方向被拉近（间距 sy/|sinθ| < textW），行合并、重叠成连续斜线。
+interface Rect { cx: number; cy: number; hw: number; hh: number; angle: number }
+function rectCorners(r: Rect): [number, number][] {
+  const cos = Math.cos(r.angle); const sin = Math.sin(r.angle)
+  const dx = [r.hw, r.hw, -r.hw, -r.hw]; const dy = [r.hh, -r.hh, -r.hh, r.hh]
+  return dx.map((x, i) => [r.cx + x * cos - dy[i] * sin, r.cy + x * sin + dy[i] * cos])
+}
+function rectsOverlap(a: Rect, b: Rect): boolean {
+  const pa = rectCorners(a); const pb = rectCorners(b)
+  const axes: [number, number][] = []
+  for (const p of [pa, pb]) for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4; axes.push([p[j][0] - p[i][0], p[j][1] - p[i][1]])
+  }
+  for (const [ax, ay] of axes) {
+    let amin = Infinity, amax = -Infinity, bmin = Infinity, bmax = -Infinity
+    for (const [x, y] of pa) { const v = x * ax + y * ay; amin = Math.min(amin, v); amax = Math.max(amax, v) }
+    for (const [x, y] of pb) { const v = x * ax + y * ay; bmin = Math.min(bmin, v); bmax = Math.max(bmax, v) }
+    if (amax < bmin || bmax < amin) return false
+  }
+  return true
+}
+function assertNoOverlap(W: number, H: number, layout: WatermarkConfig['layout'], rotation: number, textW: number, textH: number, label: string): void {
+  const cfg: WatermarkConfig = { ...base, layout, rotation, hAlign: 'center', vAlign: 'middle' }
+  const ps = computeWatermarkPlacements(W, H, cfg, textW, textH)
+  const theta = (rotation * Math.PI) / 180
+  const rects: Rect[] = ps.map((p) => ({ cx: p.x, cy: p.y, hw: textW / 2, hh: textH / 2, angle: theta }))
+  let ov = 0
+  for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) if (rectsOverlap(rects[i], rects[j])) ov++
+  assert(ov === 0, `${label}：布局 ${layout} 旋转 ${rotation}° 文本重叠 ${ov} 对，应与所选行数一致且不重叠`)
+}
+// 长文本 + 旋转（历史缺陷触发场景：行合并成斜线）
+assertNoOverlap(595, 842, 'multi6', 45, 320, 56, 'A4 六行 45° 长文本')
+assertNoOverlap(595, 842, 'multi6', -45, 320, 56, 'A4 六行 -45° 长文本')
+assertNoOverlap(595, 842, 'multi8', 45, 160, 56, 'A4 八行 45° 中长文本')
+assertNoOverlap(1000, 600, 'multi8', 45, 120, 56, '画布八行 45° 中文本')
+// 小页 + 密排（0° 也存在潜在垂直重叠）
+assertNoOverlap(600, 400, 'multi8', 0, 240, 56, '小页八行 0° 长文本')
+// 短文本 + 旋转（不应破坏原本正常场景）
+assertNoOverlap(595, 842, 'multi6', 45, 80, 56, 'A4 六行 45° 短文本')
+
 console.log('ALL_WATERMARK_LAYOUT_TESTS_PASSED')

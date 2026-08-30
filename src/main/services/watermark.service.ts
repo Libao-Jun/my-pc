@@ -77,11 +77,12 @@ export async function applyPdf(filePath: string, config: WatermarkConfig): Promi
       if (config.pageScope === 'even') return i % 2 === 1  // 第 2,4,6…页
       return true                                          // all
     })
-    // 估算文本宽度（中文全角近似）：字号 × 字符数 × 0.6，仅用于多行模式的水平间距
+    // 估算文本尺寸（中文全角近似）：宽 = 字号 × 字符数 × 0.6；高 ≈ 1.4em。用于多行模式的间距排布
     const textWidth = config.fontSize * config.text.length * 0.6
+    const textHeight = config.fontSize * 1.4
     for (const page of pages) {
       const { width, height } = page.getSize()
-      const placements = computeWatermarkPlacements(width, height, config, textWidth)
+      const placements = computeWatermarkPlacements(width, height, config, textWidth, textHeight)
       for (const p of placements) {
         // pdf-lib 坐标原点在左下角：翻转 y，且以文本左下为锚点，做居中修正
         page.drawText(config.text, {
