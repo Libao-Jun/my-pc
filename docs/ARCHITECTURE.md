@@ -23,7 +23,7 @@ Electron 应用分三块，职责严格分离：
 
 ```
 ipc/        ← 控制器层：解析通道名与参数，转调 service，统一错误
-services/   ← 服务层：业务逻辑（采集、扫描、屏蔽、优化、生成）
+services/   ← 服务层：业务逻辑（采集、扫描、屏蔽、优化、生成、水印）
 db/         ← 数据访问层：node:sqlite 连接、迁移、repository
 ai/         ← 横向能力：可选 LLM 后端适配（被 resume/diagram service 依赖）
 ```
@@ -32,7 +32,7 @@ ai/         ← 横向能力：可选 LLM 后端适配（被 resume/diagram serv
 
 ## 3. 模块划分
 
-### 3.1 功能域模块（5 个）
+### 3.1 功能域模块（6 个）
 
 | 模块 | service | ipc 处理器 | 页面 | 详细设计 |
 |------|---------|-----------|------|---------|
@@ -41,6 +41,9 @@ ai/         ← 横向能力：可选 LLM 后端适配（被 resume/diagram serv
 | 广告屏蔽 | `adblock.service.ts` | `adblock.ipc.ts` | `pages/AdBlocker` | `modules/ad-blocker.md` |
 | 简历优化 | `resume.service.ts` | `resume.ipc.ts` | `pages/ResumeOptimizer` | `modules/resume-optimizer.md` |
 | 图表生成 | `diagram.service.ts` | `diagram.ipc.ts` | `pages/DiagramGenerator` | `modules/diagram-generator.md` |
+| 水印保护 | `watermark.service.ts` | `watermark.ipc.ts` | `pages/Watermark` | `modules/watermark.md` |
+
+> 水印保护处理拆分：`watermark` —— 图片 canvas（渲染层）/ PDF pdf-lib / 视频 ffmpeg。
 
 ### 3.2 公共基础设施（横向）
 

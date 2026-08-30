@@ -25,6 +25,7 @@
 | 8 | 水印颜色 | 固定默认中性灰 `#808080`（防伪水印惯例；需求未要求自定义颜色，YAGNI 不实现） |
 | 9 | 历史 / 批量持久化 | **不做**（YAGNI）：无水印历史表，无批量任务持久化；只保留会话内队列 |
 | 10 | 图片输出格式 | **必须保持原格式**（用户确认）：png / jpg / jpeg / webp → canvas `toBlob` 原生编码（零依赖），**输出扩展名与原文件逐字一致**（`.jpg`→`.jpg`、`.jpeg`→`.jpeg`，同属 JPEG 编码、各自保留扩展名，不能变为其他格式）；bmp → 手写未压缩 BMP 编码器（零依赖，~60 行）；gif → 轻量纯 JS 编码器 `gifenc`（输出静态 GIF，格式保持 gif）；svg / ico / heic / tiff / psd 不入图片选择器（canvas 无法可靠解码/编码，无法保证原格式输出） |
+| 11 | 批量进度 | **渲染层本地跟踪**（图片在渲染层处理、PDF 即时完成，均无需主进程批量进度事件）；仅视频有 `watermark:videoProgress` 主进程进度 |
 
 ## 3. 架构
 
@@ -134,7 +135,7 @@ export function computeWatermarkPlacements(
 - 选择文件按类型过滤（`watermark:pickFiles('image' | 'pdf' | 'video')`）；图片/PDF 追加进批量队列，视频加入作为单任务。
 - 水印字体下拉映射到系统字体（微软雅黑 / 宋体 / 黑体 / 楷体 / Arial 等）。
 
-**watermarkStore（zustand）**：`config: WatermarkConfig`（默认 文本「机密」/ 微软雅黑 / 40px / 0.3 / -45° / multi3 / center / true）/ `queue: QueueItem[]`（path/type/status/outputPath）/ `batchProgress` / `videoProgress` / `applyBatch()` / `applyVideo()` / `cancel()` / `clearError`。数据流与 `fileStore` 的扫描进度模式一致（进度事件订阅 + Promise 结果）。
+**watermarkStore（zustand）**：state `config: WatermarkConfig`（默认 文本「机密」/ 微软雅黑 / 40px / 0.3 / -45° / multi3 / center / true）/ `queue: WatermarkQueueItem[]`（path/name/type/status/outputPath?/error?）/ `processing: boolean` / `videoProgress: number | null` / `error: string | null`；actions `setConfig` / `addFiles` / `removeItem` / `clearQueue` / `run` / `cancelVideo`。批量串行处理，无 batchProgress（图片渲染层处理、PDF 即时完成，仅视频有 `watermark:videoProgress` 主进程进度）。数据流与 `fileStore` 的扫描进度模式一致（进度事件订阅 + Promise 结果）。
 
 **导航接入**（沿用既有模式）：`SideNav` PageId 增 `'watermark'`、NAV_ITEMS 加 `{ id: 'watermark', label: '水印' }`；`App.tsx` 加对应分支。
 
@@ -148,7 +149,6 @@ export function computeWatermarkPlacements(
 | `watermark:applyPdf` | renderer→main | `{ filePath, config }` | `{ outputPath }` | pdf-lib 加 PDF 水印 |
 | `watermark:getVideoInfo` | renderer→main | `path: string` | `{ width, height, durationMs }` | 视频分辨率 / 时长探测 |
 | `watermark:applyVideo` | renderer→main | `{ filePath, config, watermarkPng: ArrayBuffer }` | `{ outputPath }` | 长任务；watermarkPng 为渲染层已绘好的透明水印 PNG；事件 `watermark:videoProgress` `{ percent }` |
-| `watermark:batchProgress` | main→renderer | `{ current, total, status }` | — | 批量进度事件 |
 
 preload 增 `watermark` 域；渲染层沿用 `invoke<T>` + `IpcResult`。**无持久化通道**（不建表）。
 

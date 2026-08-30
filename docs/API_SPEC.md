@@ -188,6 +188,18 @@ interface DiagramResult { type: 'mindmap' | 'flowchart' | 'approval'; mermaid: s
 
 > 图表渲染在**渲染层**完成（自研受限渲染器：仅支持 `mindmap` 缩进树与 `flowchart TD/LR` 受限子集，见 `shared/mermaid.ts`）。主进程只负责「资料 → 结构抽取 → Mermaid 源码」，并保证返回的 `mermaid` 必然通过 `validateMermaid`（受限语法校验）。AI 能力同样走适配层 + 本地兜底。
 
+## watermark（水印保护）
+
+| 通道 | 方向 | 参数 | 返回 | 说明 |
+|------|------|------|------|------|
+| `watermark:pickFiles` | renderer→main | `type: 'image'\|'pdf'\|'video'` | `string[] \| null` | 文件选择（按类型过滤扩展名，图片仅 png/jpg/jpeg/webp/bmp/gif） |
+| `watermark:readBinary` | renderer→main | `path` | `Uint8Array` | 读图片字节 |
+| `watermark:writeFile` | renderer→main | `{ sourcePath, data }` | `{ outputPath }` | 输出 `原名.水印.ext`（冲突加序号） |
+| `watermark:applyPdf` | renderer→main | `{ filePath, config }` | `{ outputPath }` | pdf-lib 加 PDF 水印（嵌入系统 CJK 字体） |
+| `watermark:getVideoInfo` | renderer→main | `path` | `{ width, height, durationMs }` | ffmpeg 探测视频信息 |
+| `watermark:applyVideo` | renderer→main | `{ filePath, config, watermarkPng }` | `{ outputPath }` | ffmpeg overlay；事件 `watermark:videoProgress` `{ percent }` |
+| `watermark:cancelVideo` | renderer→main | — | — | 取消当前视频任务（kill 子进程） |
+
 ## 8. 错误码语义
 
 | code | 含义 | 触发场景 |

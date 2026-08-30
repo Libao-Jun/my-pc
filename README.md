@@ -15,6 +15,7 @@
 | 广告屏蔽 | 基于 hosts 域名的软件广告与个性化推荐屏蔽，可备份 / 恢复 | `AdBlocker` |
 | 简历优化 | 基于 STAR 原则优化技能 / 工作经历 / 项目经历，导入导出 | `ResumeOptimizer` |
 | 图表生成 | 根据资料生成思维导图 / 流程图 / 审批流程（AI 优先、本地兜底） | `DiagramGenerator` |
+| 水印保护 | 给图片 / PDF / 视频添加可定制防伪水印（批量，保持原格式输出） | `Watermark` |
 | 设置 | AI 后端配置（OpenAI 兼容 / Anthropic）、大文件阈值等 | `Settings` |
 
 > 简历优化与图表生成默认本地处理，联网 AI 能力作为**可选后端**：已配置 → AI 生成；未配置 / 失败 / 输出不合规 → 确定性本地模板兜底，UI 展示「AI / 本地」来源角标。
@@ -59,7 +60,7 @@ npm run dist       # 打包 Windows 安装包到 release/
 ┌───────────────────────────────┴─────────────────────────────────────┐
 │  main（主进程）                                                       │
 │   ├─ ipc/        路由到各功能域处理器                                  │
-│   ├─ services/   业务逻辑（system / file / adblock / resume / diagram）│
+│   ├─ services/   业务逻辑（system / file / adblock / resume / diagram / watermark）│
 │   ├─ ai/         可选 LLM 后端适配层（openai-compatible / anthropic） │
 │   └─ db/         node:sqlite   连接 + 迁移 + repository              │
 └──────────────────────────────────────────────────────────────────────┘
