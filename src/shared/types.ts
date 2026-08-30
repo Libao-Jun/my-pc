@@ -333,10 +333,12 @@ export type WatermarkFileType = 'image' | 'pdf' | 'video'
 
 export interface WatermarkApi {
   pickFiles(type: WatermarkFileType): Promise<IpcResult<string[] | null>>
+  pickOriginal(): Promise<IpcResult<string | null>>
   readBinary(path: string): Promise<IpcResult<Uint8Array>>
   writeFile(payload: { sourcePath: string; data: Uint8Array }): Promise<IpcResult<WatermarkApplyResult>>
   applyPdf(payload: { filePath: string; config: WatermarkConfig }): Promise<IpcResult<WatermarkApplyResult>>
   getVideoInfo(path: string): Promise<IpcResult<{ width: number; height: number; durationMs: number }>>
+  extractVideoFrame(payload: { filePath: string; timeMs: number }): Promise<IpcResult<Uint8Array>>
   applyVideo(payload: {
     filePath: string
     config: WatermarkConfig

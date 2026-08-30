@@ -109,6 +109,7 @@ const api: WindowApi = {
   },
   watermark: {
     pickFiles: (type: WatermarkFileType) => invoke<string[] | null>('watermark:pickFiles', type),
+    pickOriginal: () => invoke<string | null>('watermark:pickOriginal'),
     readBinary: (path: string) => invoke<Uint8Array>('watermark:readBinary', path),
     writeFile: (payload: { sourcePath: string; data: Uint8Array }) =>
       invoke<WatermarkApplyResult>('watermark:writeFile', payload),
@@ -116,6 +117,8 @@ const api: WindowApi = {
       invoke<WatermarkApplyResult>('watermark:applyPdf', payload),
     getVideoInfo: (path: string) =>
       invoke<{ width: number; height: number; durationMs: number }>('watermark:getVideoInfo', path),
+    extractVideoFrame: (payload: { filePath: string; timeMs: number }) =>
+      invoke<Uint8Array>('watermark:extractVideoFrame', payload),
     applyVideo: (payload: {
       filePath: string
       config: WatermarkConfig

@@ -6,6 +6,7 @@ import {
   applyPdf,
   applyVideo,
   cancelVideo,
+  extractVideoFrame,
   getVideoInfo,
   readBinary,
   watermarkOutputPath,
@@ -15,6 +16,10 @@ import {
 const IMAGE_FILTER = { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] }
 const PDF_FILTER = { name: 'PDF', extensions: ['pdf'] }
 const VIDEO_FILTER = { name: '视频', extensions: ['mp4', 'mkv', 'mov', 'avi', 'wmv', 'flv', 'webm', 'ts', 'm4v'] }
+const ORIGINAL_FILTER = {
+  name: '原件',
+  extensions: [...IMAGE_FILTER.extensions, ...PDF_FILTER.extensions, ...VIDEO_FILTER.extensions]
+}
 
 function validateConfig(config: WatermarkConfig): void {
   if (typeof config !== 'object' || config === null) throw new AppError('VALIDATION_ERROR', '无效的水印配置')
@@ -29,6 +34,12 @@ function validateConfig(config: WatermarkConfig): void {
   if (!(config.rotation >= -90 && config.rotation <= 90)) throw new AppError('VALIDATION_ERROR', '旋转角度需为 -90–90')
   const layouts = ['single', 'multi2', 'multi3', 'multi6', 'multi8']
   if (!layouts.includes(config.layout)) throw new AppError('VALIDATION_ERROR', '未知的布局模式')
+  const alignsH = ['left', 'center', 'right']
+  const alignsV = ['top', 'middle', 'bottom']
+  const scopes = ['all', 'odd', 'even']
+  if (!alignsH.includes(config.hAlign)) throw new AppError('VALIDATION_ERROR', '未知的水平对齐方式')
+  if (!alignsV.includes(config.vAlign)) throw new AppError('VALIDATION_ERROR', '未知的垂直对齐方式')
+  if (!scopes.includes(config.pageScope)) throw new AppError('VALIDATION_ERROR', '未知的应用范围')
 }
 
 export function registerWatermarkIpc(): void {
@@ -45,6 +56,26 @@ export function registerWatermarkIpc(): void {
   ipcMain.handle('watermark:readBinary', async (_event, filePath: string) => {
     if (typeof filePath !== 'string' || !filePath) throw new AppError('VALIDATION_ERROR', '无效的文件路径')
     return readBinary(filePath)
+  })
+
+  // —— 预览用：合并类型单选原件 ——
+  ipcMain.handle('watermark:pickOriginal', async () => {
+    const result = await dialog.showOpenDialog({
+      title: '选择要预览水印效果的原件',
+      properties: ['openFile'],
+      filters: [ORIGINAL_FILTER]
+    })
+    return result.canceled ? null : result.filePaths[0]
+  })
+
+  ipcMain.handle('watermark:extractVideoFrame', async (_event, payload: { filePath: string; timeMs: number }) => {
+    if (!payload || typeof payload.filePath !== 'string' || !payload.filePath) {
+      throw new AppError('VALIDATION_ERROR', '无效的文件路径')
+    }
+    if (typeof payload.timeMs !== 'number' || !Number.isFinite(payload.timeMs) || payload.timeMs < 0) {
+      throw new AppError('VALIDATION_ERROR', '无效的抽帧时间')
+    }
+    return extractVideoFrame(payload.filePath, payload.timeMs)
   })
 
   ipcMain.handle('watermark:writeFile', async (_event, payload: { sourcePath: string; data: Uint8Array }) => {

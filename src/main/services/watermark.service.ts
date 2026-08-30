@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import { PDFDocument, degrees, rgb } from 'pdf-lib'
 import type { PDFFont } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
@@ -11,6 +12,8 @@ import ffmpegPath from 'ffmpeg-static'
 import { AppError } from '@shared/errors'
 import { computeWatermarkPlacements } from '@shared/watermark'
 import type { WatermarkConfig } from '@shared/watermark'
+
+const execFileAsync = promisify(execFile)
 
 // 可嵌入的系统中文字体候选（Windows 10）。优先 .ttf（fontkit 直接支持），.ttc 集合尝试兜底。
 const CJK_FONT_CANDIDATES = [
@@ -132,6 +135,21 @@ export function getVideoInfo(filePath: string): Promise<VideoInfo> {
       else reject(new AppError('PROCESS_FAILED', '无法解析视频信息：' + String(err?.message ?? '').slice(0, 200)))
     })
   })
+}
+
+// 抽一帧预览图（PNG 字节）。timeMs 为时间点，-ss 置于 -i 前（快进）。
+export async function extractVideoFrame(filePath: string, timeMs: number): Promise<Buffer> {
+  const bin = resolveFfmpeg()
+  const framePath = path.join(tmpdir(), `mypc-wm-frame-${Date.now()}.png`)
+  const secs = (timeMs / 1000).toFixed(3)
+  try {
+    await execFileAsync(bin, ['-ss', secs, '-i', filePath, '-frames:v', '1', '-f', 'image2', '-y', framePath])
+    return await readBinary(framePath)
+  } catch (e) {
+    throw new AppError('PROCESS_FAILED', '视频抽帧失败：' + (e instanceof Error ? e.message : String(e)))
+  } finally {
+    void rm(framePath, { force: true })
+  }
 }
 
 let activeVideo: { child: ChildProcess; wmPath: string } | null = null
