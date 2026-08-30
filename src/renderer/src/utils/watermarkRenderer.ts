@@ -15,10 +15,11 @@ export function drawWatermarkOn(
   ctx.fillStyle = '#808080'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  const metrics = ctx.measureText(config.text)
-  const textWidth = metrics.width
-  // 文本高度用于布局间距计算（旋转布局需按旋转后包围盒排布，防止相邻行重叠）；fallback 取 1.2em
-  const textHeight = Math.max(metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent, config.fontSize * 1.2)
+  const textWidth = ctx.measureText(config.text).width
+  // 文本高度统一按 1.4em 参与布局（与共享层 computeWatermarkPlacements 默认、PDF 输出路径一致），
+  // 使图片/视频/PDF/预览各路径行距语义相同 → 预览与真实输出跨类型一致。
+  // 不再按字体实际度量（actualBoundingBoxAscent+Descent）取高，避免字体相关差异导致各类型行距不同。
+  const textHeight = config.fontSize * 1.4
   const placements = computeWatermarkPlacements(width, height, config, textWidth, textHeight)
   for (const p of placements) {
     ctx.save()

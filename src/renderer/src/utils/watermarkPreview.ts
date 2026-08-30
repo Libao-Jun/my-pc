@@ -113,7 +113,9 @@ export async function renderOriginalPreview(
       throw new Error('PDF 文件损坏或无法解析')
     }
     if (isCancelled?.()) return ''
-    drawWatermarkOn(ctx, canvas.width, canvas.height, { ...config, fontSize: config.fontSize * viewport.scale })
+    // PDF 输出始终内嵌 SimHei（CJK_FONT_CANDIDATES 首选 simhei.ttf；msyh.ttc 等 TTC 内嵌失败会回退 simhei），
+    // 预览必须用同一字体 'SimHei' 绘制并同步缩放，否则字体字形、文本宽（列距）、行距均与输出不一致。
+    drawWatermarkOn(ctx, canvas.width, canvas.height, { ...config, fontSize: config.fontSize * viewport.scale, fontFamily: 'SimHei' })
     return '预览为首页'
   } finally {
     await pdf.destroy()

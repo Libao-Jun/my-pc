@@ -7,6 +7,29 @@ function assert(cond: boolean, msg: string): void {
 
 const base: WatermarkConfig = { ...DEFAULT_WATERMARK_CONFIG }
 
+// —— 缩放不变性（图片/视频「预览 == 真实输出」的前提）——
+// 预览把原件等比缩小到 340×260 并同步缩放 fontSize，真实输出在原尺寸绘制；同一 drawWatermarkOn 下，
+// 只有当布局算法严格缩放不变时两者才一致。历史上出现过两套测量/算法，此处锁死该不变量。
+function assertScaleInvariant(W: number, H: number, textW: number, textH: number, s: number): void {
+  const full = computeWatermarkPlacements(W, H, { ...base, layout: 'multi6', rotation: -45 }, textW, textH)
+  const scaled = computeWatermarkPlacements(
+    W * s, H * s,
+    { ...base, layout: 'multi6', rotation: -45, fontSize: base.fontSize * s },
+    textW * s, textH * s
+  )
+  assert(full.length === scaled.length, `缩放不变性：${W}x${H} 锚点数 ${full.length}->${scaled.length} 应一致`)
+  let maxErr = 0
+  for (const p of scaled) {
+    let d = Infinity
+    for (const q of full) d = Math.min(d, Math.hypot(p.x - q.x * s, p.y - q.y * s))
+    maxErr = Math.max(maxErr, d)
+  }
+  assert(maxErr < 0.5, `缩放不变性：${W}x${H}×${s} 最大锚点偏差 ${maxErr.toFixed(3)}px 应 <0.5`)
+}
+// 覆盖图片常见分辨率（1920×1080 / 800×600 / 720p / 小页密排）与预览实际缩放比（0.177/0.425/0.25）
+for (const [W, H] of [[1920, 1080], [800, 600], [1280, 720], [600, 400]] as [number, number][])
+  for (const s of [0.1771, 0.425, 0.25]) for (const textW of [80, 640]) assertScaleInvariant(W, H, textW, 56, s)
+
 // single + center → 恰 1 个锚点，落在 (500, 300)
 const single = computeWatermarkPlacements(1000, 600, { ...base, layout: 'single', hAlign: 'center', vAlign: 'middle' }, 80)
 assert(single.length === 1, 'single 应返回 1 个锚点，实际 ' + single.length)

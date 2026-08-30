@@ -24,3 +24,21 @@
 - `scripts/verify-watermark.ts`：删除旧「行错位方向」测试，新增「任意角度可见带数 = N」扫描（4 页型×4 布局×±89°~±45°×3 文本宽）、超大字号优雅降级、±89°/超长文本无重叠用例；基线带数测试显式 `rotation:0`。
 
 **验证**：穷举 6048 例（6 页型 × 4 布局 × -89°~89° 21 角 × 文本宽 40~2000）真实实现 0 重叠；0° 与旧算法逐点一致（无回归）；`ALL_WATERMARK_LAYOUT_TESTS_PASSED`；双 typecheck 零错误。消费方 API 与页面坐标不变，四路零改动。
+
+## 2026-08-30 — 修复「预览效果 vs 处理输出不一致」（图片/PDF/视频三类型）
+
+**触发**：用户报告「水印效果预览效果和开始处理后下载后的不一致」，并补充「图片、PDF 和视频的预览效果和开始处理处理后的效果必须一致」。
+
+**检测**（缩放不变性实证 0.000px）：图片/视频路径预览与输出共用 `drawWatermarkOn` 且布局算法严格缩放不变，本就一致；**不一致仅存在于 PDF 路径**，四源：
+1. 字体：预览用 `config.fontFamily`（默认 YaHei），输出恒内嵌 **simhei**（`msyh.ttc`/`simsun.ttc` 的 TTC 经 fontkit 内嵌失败，已实证 `this.font.layout is not a function`）→ 字形不同；
+2. 文本宽：预览 canvas 测 YaHei vs 输出 simhei `widthOfTextAtSize` → 列距 U 不同；
+3. 文本高：预览 `max(actualBoundingBoxAscent+Descent, 1.2em)` vs 输出 `1.4em` → 密排/大字号时行距 V 不同；
+4. 旋转方向：pdfjs 实证 `degrees(45)` 的 Tm 矩阵 `[0.7071 0.7071 -0.7071 0.7071]` 基线指向右上 = y-up 逆时针；canvas `rotate(+θ)` 在 y-down 为顺时针 → **同一 rotation 值倾斜方向镜像**。
+
+**变更**：
+- `watermark.service.ts`：`rotate: degrees(-config.rotation)`（正角=顺时针，与 canvas 及图片/视频统一）；
+- `watermarkRenderer.ts` `drawWatermarkOn`：textHeight 统一 `fontSize*1.4`（弃用 actualBoundingBox 取高）→ 三类型行距语义一致；
+- `watermarkPreview.ts` PDF 分支：`fontFamily:'SimHei'` 绘制（对齐输出恒内嵌 simhei）；
+- `scripts/verify-watermark.ts`：新增缩放不变性回归（4 分辨率 × 3 缩放比 × 2 文本宽，断言锚点数一致且偏差 <0.5px）。
+
+**验证**：`ALL_WATERMARK_LAYOUT_TESTS_PASSED`；双 typecheck 零错误。已知边缘：PDF 页含 `/Rotate` 元数据时预览（pdfjs 应用旋转显示）与输出（pdf-lib 未旋转空间绘制）仍不一致，留待后续处理。

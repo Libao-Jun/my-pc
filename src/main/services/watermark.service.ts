@@ -92,7 +92,10 @@ export async function applyPdf(filePath: string, config: WatermarkConfig): Promi
           y: height - p.y - config.fontSize / 2,
           size: config.fontSize,
           font,
-          rotate: degrees(config.rotation),
+          // canvas 的 ctx.rotate(+θ) 在 y 向下为顺时针；pdf-lib 的 degrees(+θ) 在 y 向上为逆时针
+          // （Tm 矩阵基线向量 (cosθ, sinθ) 指向右上）。取反后 PDF 输出与 canvas 预览
+          // （及图片/视频输出）倾斜方向一致：正角 = 顺时针。
+          rotate: degrees(-config.rotation),
           opacity: config.opacity,
           color: rgb(0.5, 0.5, 0.5)
         })
