@@ -156,15 +156,31 @@ function writeState(state) {
 }
 
 function parseFrontmatter(text) {
-  const m = /^---\n([\s\S]*?)\n---/.exec(text)
+  // 兼容 CRLF 行尾（部分 skill 文件为 Windows 换行），统一为 \n 再解析
+  const m = /^---\n([\s\S]*?)\n---/.exec(text.replace(/\r/g, ''))
   if (!m) return { name: '', description: '' }
   let name = ''
   let description = ''
+  let descPending = false
   for (const line of m[1].split('\n')) {
     const n = /^name:\s*["']?([^"'\n]+)["']?\s*$/.exec(line)
     if (n) name = n[1].trim()
-    const d = /^description:\s*["']?([^"'\n]+)["']?\s*$/.exec(line)
-    if (d) description = d[1].trim()
+    if (descPending) {
+      if (/^\s/.test(line)) {
+        description = description ? `${description} ${line.trim()}` : line.trim()
+        continue
+      }
+      descPending = false
+    }
+    const d = /^description:\s*(.*)$/.exec(line)
+    if (d) {
+      description = d[1].trim().replace(/^["']|["']$/g, '')
+      // YAML 块标量（description: 后跟 | / |- / > 等或空值）：后续缩进行均为描述内容
+      if (description === '' || /^[|>][-+]?$/.test(description)) {
+        description = ''
+        descPending = true
+      }
+    }
   }
   return { name, description }
 }
@@ -216,10 +232,10 @@ function main() {
     process.exit(1)
   }
   const state = readState()
-  const dirs = fs
-    .readdirSync(SKILL_ROOT, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && d.name !== '_archive' && d.name !== 'skill-curator')
+  const dirs = fs.readdirSync(SKILL_ROOT, { withFileTypes: true })
+    .filter((d) => d.name !== '_archive' && d.name !== 'skill-curator')
     .map((d) => d.name)
+    .filter((name) => fs.statSync(path.join(SKILL_ROOT, name)).isDirectory())
     .sort()
 
   const skills = []
@@ -305,7 +321,7 @@ mkdir -p .claude/skills/__tmp_dup__
 cat > .claude/skills/__tmp_dup__/SKILL.md <<'EOF'
 ---
 name: diagram-generator-dup
-description: 生成图表与思维导图的图表生成技能，用于图表与思维导图输出
+description: 根据所给资料生成思维导图，用于图表与思维导图输出
 ---
 正文略
 EOF
@@ -327,7 +343,7 @@ Run:
 ```bash
 cd "E:/monorepo/my-pc" && node .claude/skills/skill-curator/scripts/curator-check.mjs
 ```
-Expected: 不再含 `重复候选:` 与 `缺 description:`（`- 最大:` 行可存在，取决于真实技能体积）。
+Expected: 恢复到 Step 2 基线——`重复候选:` 仍可含真实库样板短语产生的候选（如「即便没有明说」「use this skill」等，属已知启发式噪音，deferred Minor M2，不得为消除它修改既有 skill）；`缺 description:` 不应再含 `skill-factory`（引号解析已修复）。
 
 - [ ] **Step 6: `.gitignore` 追加忽略状态文件**
 
@@ -346,6 +362,12 @@ git add .claude/skills/skill-curator/scripts/curator-check.mjs .gitignore
 git commit -m "feat(skill-curator): SessionStart 检测脚本（零依赖）+ 忽略运行时状态
 Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
+
+**计划修订（用户裁定，修复环 R1，提交 416f675）：** 简报原逐字脚本含两个真实缺陷，评审标为 plan-mandated Important，用户裁定「修复脚本 + 修正计划」：
+1. `parseFrontmatter` 遇描述内引号截断 → 误报缺 description（skill-factory）。修复：取 `description:` 后整行剥外层引号 + CRLF 归一化 + YAML 块标量续行收集（实现过程中另发现 CRLF 行尾破坏 `^---\n`、`claude-api`/`vercel-composition-patterns` 用块标量，一并修复）。
+2. `d.isDirectory()` 拒绝符号链接目录 → 本机 21/28 漏扫。修复：`fs.statSync(...).isDirectory()` 跟随符号链接。
+3. Step 4 临时 fixture 描述已改为与真实 `diagram-generator` 共享 ≥6 中文串的版本；Step 5 期望已修正（真实库样板短语噪音为 deferred Minor M2，不得修改既有 skill 消除）。
+最终脚本以 `.claude/skills/skill-curator/scripts/curator-check.mjs`（提交 416f675）为准。
 
 ---
 
