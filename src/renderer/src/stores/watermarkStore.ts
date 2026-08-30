@@ -20,6 +20,8 @@ interface WatermarkState {
   processing: boolean
   videoProgress: number | null
   error: string | null
+  previewPath: string | null
+  setPreviewPath: (path: string | null) => void
   setConfig: (patch: Partial<WatermarkConfig>) => void
   addFiles: (type: WatermarkFileType) => Promise<void>
   removeItem: (path: string) => void
@@ -39,8 +41,11 @@ export const useWatermarkStore = create<WatermarkState>((set, get) => ({
   processing: false,
   videoProgress: null,
   error: null,
+  previewPath: null,
 
   setConfig: (patch) => set((s) => ({ config: { ...s.config, ...patch } })),
+
+  setPreviewPath: (path) => set({ previewPath: path }),
 
   addFiles: async (type) => {
     const r = await window.api.watermark.pickFiles(type)
@@ -60,7 +65,7 @@ export const useWatermarkStore = create<WatermarkState>((set, get) => ({
 
   removeItem: (path) => set((s) => ({ queue: s.queue.filter((q) => q.path !== path) })),
 
-  clearQueue: () => set({ queue: [] }),
+  clearQueue: () => set({ queue: [], previewPath: null }),
 
   cancelVideo: () => {
     set({ videoProgress: null })

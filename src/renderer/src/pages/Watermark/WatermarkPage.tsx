@@ -1,5 +1,4 @@
 import { WatermarkConfigForm } from './WatermarkConfigForm'
-import { WatermarkPreview } from './WatermarkPreview'
 import { WatermarkQueue } from './WatermarkQueue'
 import styles from './WatermarkPage.module.css'
 
@@ -10,7 +9,6 @@ export function WatermarkPage(): JSX.Element {
       <div className={styles.grid}>
         <div className={styles.left}>
           <WatermarkConfigForm />
-          <WatermarkPreview />
         </div>
         <div className={styles.right}>
           <WatermarkQueue />

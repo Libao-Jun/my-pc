@@ -1,4 +1,5 @@
 import { useWatermarkStore } from '@renderer/stores/watermarkStore'
+import { WatermarkPreview } from './WatermarkPreview'
 import styles from './WatermarkQueue.module.css'
 
 const TYPE_LABEL: Record<string, string> = { image: '图片', pdf: 'PDF', video: '视频' }
@@ -36,6 +37,8 @@ export function WatermarkQueue(): JSX.Element {
           选择视频
         </button>
       </div>
+
+      <WatermarkPreview />
 
       {error && <p className={styles.error}>{error}</p>}
 
