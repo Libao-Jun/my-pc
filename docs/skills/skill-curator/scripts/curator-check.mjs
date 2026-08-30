@@ -14,7 +14,7 @@ const STALE_DAYS = 30
 const MAX_DUPS = 5 // 重复候选最多展示条数（防样板噪音刷屏）
 const BOILERPLATE_FREQ = 3 // 共享短语出现在 ≥3 个 skill 视为样板，忽略
 const FUNCTION_WORDS = new Set(
-  'the a an this that these those when whenever should use uses used using user wants want wanted need needs needed ask asks asked for of to from with by or and in on at as is are was were be been it you your their we they if then also can could will would shall may might must not no nor all any each every into over under than so about which who whom what where how why both either neither until while because'.split(' ')
+  'the a an this that these those when whenever should use uses used using user wants want wanted need needs needed ask asks asked for of to from with by or and in on at as is are was were be been it you your their we they if then also can could will would shall may might must not no nor all any each every into over under than so about which who whom what where how why both either neither until while because skill user users request want wants'.split(' ')
 )
 
 function readState() {
@@ -129,12 +129,19 @@ function dupInfo(a, b, freq) {
 }
 
 function main() {
-  if (!fs.existsSync(SKILL_ROOT) || !fs.statSync(SKILL_ROOT).isDirectory()) {
-    console.error(`[skill-curator] SKILL_ROOT 不存在或不是目录: ${SKILL_ROOT}`)
+  let dirs
+  try {
+    if (!fs.existsSync(SKILL_ROOT) || !fs.statSync(SKILL_ROOT).isDirectory()) {
+      console.error(`[skill-curator] SKILL_ROOT 不存在或不是目录: ${SKILL_ROOT}`)
+      process.exit(1)
+    }
+    dirs = fs.readdirSync(SKILL_ROOT, { withFileTypes: true })
+  } catch {
+    console.error(`[skill-curator] 无法读取 SKILL_ROOT: ${SKILL_ROOT}`)
     process.exit(1)
   }
   const state = readState()
-  const dirs = fs.readdirSync(SKILL_ROOT, { withFileTypes: true })
+  dirs = dirs
     .filter((d) => d.name !== '_archive')
     .map((d) => d.name)
     .filter((name) => {

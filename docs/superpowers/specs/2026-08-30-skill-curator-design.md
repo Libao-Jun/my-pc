@@ -64,6 +64,8 @@ docs/skills/skill-curator/
 
 工具无关，`SKILL_ROOT` 参数化（默认 `docs/skills/`，可替换为任意助手技能目录）。
 
+> **当前口径（2026-08-30 更新）**：通用提示词已升级为「Skill Curator · 代码复用优化专家」模型，在原 6 节基础上拓展：**Skill 定义拓宽**（AI 指令类 + 代码级可复用单元）、**纳入/排除标准**、**状态机**（生效|待优化|已废弃）、**复用优先开发约束**、**每轮输出流程**、**特殊指令**（含「重新梳理Skill库」）、**表索引**——全库索引表 `SKILL_ROOT/SKILL-LIBRARY.md` 为 8 列表格式（Skill ID 递增 SK-001…，状态 ∈ 生效|待优化|已废弃）。
+
 **文档章节（6 节）**
 
 1. **身份与常驻职责**：你是该技能库的维护者（Skill Curator）。每个会话中持续识别可复用模式并维护技能库，但**不打断主任务**——识别后先记下，在触发点统一处理。
@@ -111,14 +113,15 @@ docs/skills/skill-curator/
 - frontmatter：
   ```yaml
   name: skill-curator
-  description: 维护本仓库 Skill 库的自适应管家。触发场景：用户说"重梳理 skills / 整理 skill 库 / curator"；或会话开始 Hook 摘要报异常、上下文压缩后、功能/阶段完成时，需要评估技能库时。
+  description: 维护本仓库 Skill 库的自适应管家。触发场景：用户说"重梳理 skills / 整理 skill 库 / 重新梳理Skill库 / 代码复用优化 / curator"；或会话开始 Hook 摘要报异常、上下文压缩后、功能/阶段完成时，需要评估技能库时。
   ```
 - 正文结构：
   1. 一句话职责 + 指向 `docs/prompts/skill-curator-prompt.md`（通用提示词全文是权威）。
   2. 本仓库具体路径：`SKILL_ROOT = docs/skills/`、状态 `docs/skills/.curator-state.json`、报告 `docs/skills/CURATOR_REPORT.md`、归档 `docs/skills/_archive/`。
-  3. 执行 SOP（照 §5-3）：新增/修改/合并/精简/归档，非破坏性约定。
-  4. 触发检查：`node docs/skills/skill-curator/scripts/curator-check.mjs`。
-  5. 变更报告格式（追加到 `CURATOR_REPORT.md`）：
+  3. 本仓库约定：每个 Skill = `docs/skills/<name>/SKILL.md`（frontmatter 含 name/description；正文含 输入参数/输出结果/使用约束/示例调用/状态）；代码级可复用单元同样落 SKILL.md 文档，实现留在 `src/` 等原处、文档指向其位置与接口；全库索引表 `docs/skills/SKILL-LIBRARY.md`（8 列，Skill ID 递增 SK-001…，状态 ∈ 生效|待优化|已废弃）。
+  4. 执行 SOP（照 §5-3）：新增/修改/合并/精简/归档，非破坏性约定。
+  5. 触发检查：`node docs/skills/skill-curator/scripts/curator-check.mjs`；运行后同步核对 `docs/skills/SKILL-LIBRARY.md` 与 `docs/skills/*/SKILL.md` 是否一致。
+  6. 变更报告格式（追加到 `CURATOR_REPORT.md`）：
      ```
      ## YYYY-MM-DD（触发源: session-start | compaction | feature | manual）
      - 新增: skill-a（原因）
@@ -127,7 +130,9 @@ docs/skills/skill-curator/
      - 精简: skill-d（体积 X→Y KB）
      - 更新: .curator-state.json lastFullReorg=YYYY-MM-DD
      ```
-  6. 完成动作：更新 `lastFullReorg`、追加报告、输出摘要给用户。
+  7. 完成动作：更新 `lastFullReorg`、追加报告、输出摘要给用户。
+  8. 开发执行约束（复用优先）：编码前先检索【项目Skill库】，有匹配生效 Skill 直接复用、禁止重写相同逻辑；不满足时优先「少量适配」>「更新已有 Skill」>「新增 Skill」。
+  9. 每轮输出流程：处理需求 → 扫变更代码 → 更新库 → 输出完整【项目Skill库】表 → 变更摘要（无变更写「本轮无新增/变更Skill」）。
 
 ## 8. CLAUDE.md 常驻命令（`.claude/CLAUDE.md`，现为空 → 写入）
 
@@ -138,6 +143,7 @@ docs/skills/skill-curator/
 - 会话开始时若 SessionStart Hook 注入的 skill-curator 检测摘要报告异常（重复候选 / 缺描述 / 超 30 天未重梳理），**自主执行一次全盘重梳理**，无需用户下令。
 - 上下文压缩后、或某功能/阶段完成时，评估是否有可抽离的复用模式并重梳理相关 Skill 类目。
 - 维护动作遵循非破坏性约定：合并/归档前原文移入 `docs/skills/_archive/`，每次重梳理追加 `docs/skills/CURATOR_REPORT.md`。
+- 开发遵循复用优先：编码前先检索 `docs/skills/SKILL-LIBRARY.md`，有匹配生效 Skill 直接复用、禁止重写相同逻辑；每轮代码处理后增量更新 Skill 库。
 ```
 
 CLAUDE.md 只放常驻命令，全文在 `docs/prompts/`——这本身演示了"描述优先、正文按需读"。
@@ -147,6 +153,7 @@ CLAUDE.md 只放常驻命令，全文在 `docs/prompts/`——这本身演示了
 - **共存，不合并**：`skill-factory` 保留命令式管理（Skill Commander `/skills` 命令、Skill Optimizer、config.json）；`skill-curator` 是自主层。
 - 通用提示词注明："若检测到既有 skill-factory，合并其优化结果、复用其命令，避免重复建设。"
 - skill-curator 自身也是 `docs/skills/` 下的一个 skill，接受自身治理（self-maintenance 允许，但 Hook 扫描仅排除 `_archive/`，自身纳入扫描）。既有 28 个 skill 仍留在 `.claude/skills/`（Claude 原生发现），不在 curator 扫描范围。
+- **代码级可复用单元共存说明**：代码级可复用单元（工具函数/组件模板/校验规则/通用流程等）与 AI 指令类 Skill 在库内共存——均落 `docs/skills/<name>/SKILL.md`，实际实现留在 `src/` 等原处、文档指向其位置与接口（不复制代码入库）；两者统一由【项目Skill库】索引表 `docs/skills/SKILL-LIBRARY.md` 索引。
 
 ## 10. 交付物清单
 
@@ -154,6 +161,7 @@ CLAUDE.md 只放常驻命令，全文在 `docs/prompts/`——这本身演示了
 |------|------|------|
 | `docs/prompts/skill-curator-prompt.md` | 新增 | 通用提示词（核心交付物，工具无关） |
 | `docs/skills/skill-curator/SKILL.md` | 迁入 | 本仓库执行实例（由旧库根 `.claude/skills/` 迁入） |
+| `docs/skills/SKILL-LIBRARY.md` | 新增 | 索引表种子（8 列表，含 SK-001） |
 | `docs/skills/skill-curator/scripts/curator-check.mjs` | 迁入 | SessionStart Hook 脚本（零依赖，由旧库根迁入） |
 | `.claude/CLAUDE.md` | 修改（现为空） | 常驻命令 + 指向通用提示词 |
 | `.claude/settings.json` | 修改 | 加 `hooks.SessionStart` |
@@ -169,6 +177,8 @@ CLAUDE.md 只放常驻命令，全文在 `docs/prompts/`——这本身演示了
 - [ ] `node docs/skills/skill-curator/scripts/curator-check.mjs` 手动运行无错误、输出符合格式。
 - [ ] 全流程除首次安装外无需任何人工命令触发。
 - [ ] `git status` 只含本设计交付物改动。
+- [ ] 对用户说「重新梳理Skill库」→ 全盘重梳理并输出整理后 Skill 库。
+- [ ] 每轮代码处理后输出完整【项目Skill库】表。
 
 ## 12. 回滚与数据安全
 
