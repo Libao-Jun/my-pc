@@ -30,15 +30,31 @@ function writeState(state) {
 }
 
 function parseFrontmatter(text) {
-  const m = /^---\n([\s\S]*?)\n---/.exec(text)
+  // 兼容 CRLF 行尾（部分 skill 文件为 Windows 换行），统一为 \n 再解析
+  const m = /^---\n([\s\S]*?)\n---/.exec(text.replace(/\r/g, ''))
   if (!m) return { name: '', description: '' }
   let name = ''
   let description = ''
+  let descPending = false
   for (const line of m[1].split('\n')) {
     const n = /^name:\s*["']?([^"'\n]+)["']?\s*$/.exec(line)
     if (n) name = n[1].trim()
-    const d = /^description:\s*["']?([^"'\n]+)["']?\s*$/.exec(line)
-    if (d) description = d[1].trim()
+    if (descPending) {
+      if (/^\s/.test(line)) {
+        description = description ? `${description} ${line.trim()}` : line.trim()
+        continue
+      }
+      descPending = false
+    }
+    const d = /^description:\s*(.*)$/.exec(line)
+    if (d) {
+      description = d[1].trim().replace(/^["']|["']$/g, '')
+      // YAML 块标量（description: 后跟 | / |- / > 等或空值）：后续缩进行均为描述内容
+      if (description === '' || /^[|>][-+]?$/.test(description)) {
+        description = ''
+        descPending = true
+      }
+    }
   }
   return { name, description }
 }
@@ -90,10 +106,10 @@ function main() {
     process.exit(1)
   }
   const state = readState()
-  const dirs = fs
-    .readdirSync(SKILL_ROOT, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && d.name !== '_archive' && d.name !== 'skill-curator')
+  const dirs = fs.readdirSync(SKILL_ROOT, { withFileTypes: true })
+    .filter((d) => d.name !== '_archive' && d.name !== 'skill-curator')
     .map((d) => d.name)
+    .filter((name) => fs.statSync(path.join(SKILL_ROOT, name)).isDirectory())
     .sort()
 
   const skills = []
