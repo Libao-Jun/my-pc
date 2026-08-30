@@ -16,28 +16,64 @@ assert(Math.abs(single[0].x - 500) < 1 && Math.abs(single[0].y - 300) < 1, 'sing
 const tl = computeWatermarkPlacements(1000, 600, { ...base, layout: 'single', hAlign: 'left', vAlign: 'top' }, 80)
 assert(tl[0].x < 200 && tl[0].y < 200, 'top-left 应在左上角')
 
-// multi3 → 恰好 3 条 y 带，间距 = 600/3 = 200
-const multi3 = computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi3' }, 80)
+// multi3 → 恰好 3 条 y 带，间距 = 600/3 = 200（0° 时新旧算法逐点一致，带为水平）
+const multi3 = computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi3', rotation: 0 }, 80)
 const ys3 = [...new Set(multi3.map((p) => Math.round(p.y)))].sort((a, b) => a - b)
 assert(ys3.length === 3, 'multi3 应有 3 条 y 带，实际 ' + ys3.length)
 assert(Math.abs(ys3[1] - ys3[0] - 200) <= 1, 'multi3 带间距应为 200')
 assert(Math.abs(ys3[2] - ys3[1] - 200) <= 1, 'multi3 带间距应为 200')
 
-// 带符号 tan：旋转 -45°（默认）时 dx = sy/tan(-45°) = -sy = -200，相邻行应左移（斜线带跟随文字 / 方向）。
-// 用 textWidth=200 使 sx=320 > |dx|=200，避免 sx=|dx| 时网格退化：左移时行1 的 c=0 锚点落在 x=300，
-// 右移（abs）时该锚点落在 x=700（300 处无锚点），据此区分方向。
-const dir = computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi3' }, 200)
-const row1Shifted = dir.some((p) => Math.abs(p.y - 300) < 1 && Math.abs(p.x - 300) <= 1)
-assert(row1Shifted, '旋转 -45° 时行1 的 c=0 锚点应左移到 x=300（dx=-200，跟随文字 / 方向）')
+// —— 文本对齐栅格：任意旋转角可见带数 = N ——
+// 带 = 沿文本垂直方向（v）的平行行。同一行所有文本共享 v 坐标；相邻行 v 间距 ≥ 文本高×1.05，
+// 故按 v 坐标聚类即可统计可见带数。历史缺陷：旧行错位式在旋转 + 长文本时行距被文本长顶爆，
+// 一页 N 行崩塌为 2~3 行（用户报告「最后减少到一页2~3行倾斜文本」）。
+function countVisibleBands(W: number, H: number, layout: WatermarkConfig['layout'], rotation: number, textW: number, textH: number): number {
+  const cfg: WatermarkConfig = { ...base, layout, rotation, hAlign: 'center', vAlign: 'middle' }
+  const theta = (rotation * Math.PI) / 180
+  const vx = -Math.sin(theta)
+  const vy = Math.cos(theta)
+  const ps = computeWatermarkPlacements(W, H, cfg, textW, textH)
+  const c = Math.abs(Math.cos(theta)), s = Math.abs(Math.sin(theta))
+  const hw = (textW * c + textH * s) / 2, hh = (textW * s + textH * c) / 2
+  const vs = ps
+    .filter((p) => p.x + hw >= 0 && p.x - hw <= W && p.y + hh >= 0 && p.y - hh <= H) // 页内
+    .map((p) => (p.x - W / 2) * vx + (p.y - H / 2) * vy) // 中心原点下的 v 坐标
+    .sort((a, b) => a - b)
+  let bands = 0
+  for (let i = 0; i < vs.length; i++) if (i === 0 || vs[i] - vs[i - 1] > textH * 0.6) bands++
+  return bands
+}
+// 4 页型（A4 纵/横、720p 视频帧、小页密排）× 4 布局 × 全角度 × 短/用户/超长文本。
+// 物理前提：textH×1.05×N ≤ 页高 时 N 行必然全部放得下 → 断言带数 = N；否则属「超大字号/密排」物理极限，
+// 由后续用例单独断言优雅降级（不超 N、不重叠、不崩溃）。
+for (const [W, H] of [[595, 842], [842, 595], [1280, 720], [600, 400]] as [number, number][])
+  for (const layout of ['multi2', 'multi3', 'multi6', 'multi8'] as const)
+    for (const rotation of [-89, -45, -15, 0, 15, 45, 89])
+      for (const textW of [40, 640, 1200]) {
+        const n = Number(layout.replace('multi', ''))
+        if (56 * 1.05 * n <= H * 0.9) {
+          const bands = countVisibleBands(W, H, layout, rotation, textW, 56)
+          assert(bands === n, `${W}x${H} ${layout} 旋转${rotation}° 文本宽${textW}：可见带数 ${bands}，应=${n}（一页N行契约）`)
+        }
+      }
+// 物理极限（超大字号 16 字@112px → textW≈1792 / textH≈157，8 行需 8×157×1.05≈1319 > 页高）：不重叠 + 带数不超 N + 不崩溃
+for (const [W, H] of [[595, 842], [1280, 720]] as [number, number][])
+  for (const layout of ['multi6', 'multi8'] as const)
+    for (const rotation of [-45, 0, 45]) {
+      const n = Number(layout.replace('multi', ''))
+      const bands = countVisibleBands(W, H, layout, rotation, 1792, 157)
+      assert(bands >= 1 && bands <= n, `${W}x${H} ${layout} 旋转${rotation}° 超大字号：可见带数 ${bands}，应在 1~${n}`)
+      assertNoOverlap(W, H, layout, rotation, 1792, 157, `超大字号 ${W}x${H} ${layout} 旋转${rotation}°`)
+    }
 
 // multi8 → 8 条带
-const multi8 = computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi8' }, 80)
+const multi8 = computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi8', rotation: 0 }, 80)
 const ys8 = new Set(multi8.map((p) => Math.round(p.y)))
 assert(ys8.size === 8, 'multi8 应有 8 条 y 带，实际 ' + ys8.size)
 
 // multi2 / multi6 覆盖
-assert(new Set(computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi2' }, 80).map((p) => Math.round(p.y))).size === 2, 'multi2 应为 2 条带')
-assert(new Set(computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi6' }, 80).map((p) => Math.round(p.y))).size === 6, 'multi6 应为 6 条带')
+assert(new Set(computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi2', rotation: 0 }, 80).map((p) => Math.round(p.y))).size === 2, 'multi2 应为 2 条带')
+assert(new Set(computeWatermarkPlacements(1000, 600, { ...base, layout: 'multi6', rotation: 0 }, 80).map((p) => Math.round(p.y))).size === 6, 'multi6 应为 6 条带')
 
 // —— 回归：布局 + 旋转不得产生文本重叠 ——
 // 旋转后的文本按宽 textW / 高 textH 的矩形，绕其中心旋转 rotation 度绘制；
@@ -106,6 +142,10 @@ assertNoOverlap(1000, 600, 'multi6', -30, 320, 56, '画布六行 -30° 中文本
 // 超长文本（≈30 字）高旋转也不得合并
 assertNoOverlap(595, 842, 'multi8', 45, 1200, 56, 'A4 八行 45° 超长文本')
 assertNoOverlap(1000, 600, 'multi3', 45, 1200, 56, '画布三行 45° 超长文本')
+// 近垂直旋转（±89°，超需求范围 -45°~45° 的裕度）+ 超长文本：不得重叠、不得把行甩出页外导致空白
+assertNoOverlap(595, 842, 'multi6', 89, 2000, 56, 'A4 六行 89° 超长文本')
+assertNoOverlap(595, 842, 'multi6', -89, 640, 56, 'A4 六行 -89° 用户文本')
+assertNoOverlap(1280, 720, 'multi8', 89, 568, 56, '720p 八行 89° 长混合文本')
 
 // —— estimateTextWidth 近似符合真实渲染宽度（画布实测 568；模拟估出 548，容差 ±60）——
 const est = estimateTextWidth('所有日期均按 GMT+8 时间显示', 40)

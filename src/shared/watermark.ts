@@ -57,6 +57,14 @@ export function estimateTextWidth(text: string, fontSize: number): number {
 }
 
 // 坐标系约定：y 轴向下（canvas 惯例）；PDF 消费方在绘制时自行翻转 y。
+// 返回的是「页面左上角为原点」的坐标，直接供 canvas / pdf-lib / 视频 PNG 绘制。
+//
+// 布局算法：文本对齐栅格（自 5d3a766 的行错位式重写）。
+//   - 行 = 沿「文本垂直方向」排布的带：带距 V 只依赖「文本高 × 页高/N」，与文本长度彻底解耦。
+//   - 列 = 沿「文本方向」排布：列距 U ≥ 文本宽 × 1.6。
+//   - 由此，任意文本长度 × 任意旋转角，几何上永不重叠（同行沿向分离 ≥ 文本宽，
+//     跨行垂直分离 ≥ 文本高），一页 N 行在任何角度都可见（文本大到物理放不下时优雅降级）。
+//   - 0° 时 V=页高/N、U=max(文本宽×1.6, V)，与旧算法逐点一致，零回归。
 export function computeWatermarkPlacements(
   width: number,
   height: number,
@@ -70,31 +78,59 @@ export function computeWatermarkPlacements(
   if (!Number.isFinite(n) || n < 1) return [positionAnchor(width, height, config)]
 
   const theta = (config.rotation * Math.PI) / 180
-  const cos = Math.abs(Math.cos(theta))
-  const sin = Math.abs(Math.sin(theta))
-  // 文本旋转后的世界包围盒（水平/垂直投影尺寸）。间距必须容纳它，
-  // 否则旋转 ≠0 时相邻行文本沿阅读方向被拉近（间距 sy/|sinθ| < textWidth），行合并成连续斜线。
-  const rotatedW = textWidth * cos + textHeight * sin
-  const SAFETY = 1.05
-  // 行距：容纳「未旋转时的文本高」（密排小页 0° 也可能重叠）与「旋转后沿阅读方向相邻行的文本长」
-  const sy = Math.max(height / n, textHeight * SAFETY, textWidth * sin * SAFETY)
-  // 列距四项，任一不足即产生重叠：
-  //  ① 同行沿向 ≥ 文本宽（0° 时文本水平互不压） ② ≥ 行距（低行距兜底）
-  //  ③ 旋转后水平投影 ≥ 包围盒 ④ 相邻对角带垂直向间距 = sx·|sinθ| 须 ≥ 文本高。
-  //     第 ④ 项缺失时（如小页 8 行 + 低旋转角 + 短/长文本），行错位后跨列的
-  //     相邻文本沿阅读方向残差 < 文本宽 → 几百对文本重叠成行，历史缺陷复现。
-  const sx = Math.max(textWidth * 1.6, sy, rotatedW * SAFETY, sin > 1e-6 ? (textHeight / sin) * SAFETY : 0)
-  const tan = Math.tan(theta)
-  // 带符号 tan：让相邻行错位方向跟随文字倾斜方向（旋转 -45° 时斜线带与文字同向，经典防伪水印外观）
-  const dx = Math.abs(tan) > 1e-6 ? sy / tan : 0
-  // 行位移 r·dx 使各行横向偏移：列数须覆盖「页宽 + 两侧最大位移」，保证旋转布局仍铺满页面
-  const halfCols = Math.ceil((width + 2 * (n - 1) * Math.abs(dx)) / sx / 2) + 1
+  const cosA = Math.abs(Math.cos(theta))
+  // 文本方向单位向量 u（带符号，决定倾斜方向）与其垂直方向 v（旋转 +90°）。
+  const ux = Math.cos(theta)
+  const uy = Math.sin(theta)
+  const vx = -uy
+  const vy = ux
+  // 以页面中心为原点，计算四角在 v 轴上的投影，得到页面垂直跨度 → 行距的可用范围。
+  const corners: [number, number][] = [
+    [-width / 2, -height / 2],
+    [width / 2, -height / 2],
+    [-width / 2, height / 2],
+    [width / 2, height / 2]
+  ]
+  const vVals = corners.map(([x, y]) => x * vx + y * vy)
+  const vMin = Math.min(...vVals)
+  const vMax = Math.max(...vVals)
+  const vCenter = (vMin + vMax) / 2
+  // 带距 V：夹紧在 [文本高×1.05（保证不重叠）, (页面垂直跨度-文本高)/(n-1)（保证 N 行全部跨页）] 之间。
+  // 目标 H/(n·cosθ) 使一页 N 行（0° 即 H/N）；当 cosθ→0（近 90°）该值爆炸时用跨度上界兜底，
+  // 否则行会全部跑到页外。文本高超过可用跨度时（超大字号）取文本高×1.05，放不下的行被跳过。
+  const vFit = (vMax - vMin - textHeight) / Math.max(n - 1, 1)
+  const V = Math.max(textHeight * 1.05, Math.min(height / (n * Math.max(cosA, 1e-4)), vFit))
+  // 沿文本列距：0° 时 = max(文本宽×1.6, V)，与旧算法 sx 逐项一致。
+  const U = Math.max(textWidth * 1.6, V)
 
   const out: WatermarkPlacement[] = []
-  for (let r = 0; r < n; r++) {
-    const y = sy / 2 + r * sy
-    for (let c = -halfCols; c <= halfCols; c++) {
-      out.push({ x: width / 2 + c * sx + r * dx, y })
+  for (let k = 0; k < n; k++) {
+    const vPos = vCenter + (k - (n - 1) / 2) * V
+    // 该行直线（v=vPos）与页面矩形的交点区间 t（沿 u 方向参数，即 u 坐标）。
+    // 每个轴约束：vPos·v轴 + t·u轴 ∈ [-半跨度, 半跨度]。
+    let tLo = -Infinity
+    let tHi = Infinity
+    const clampT = (vComp: number, uComp: number, half: number): boolean => {
+      if (Math.abs(uComp) > 1e-9) {
+        const lo = (-half - vPos * vComp) / uComp
+        const hi = (half - vPos * vComp) / uComp
+        tLo = Math.max(tLo, Math.min(lo, hi))
+        tHi = Math.min(tHi, Math.max(lo, hi))
+      } else if (Math.abs(vPos * vComp) > half + 1e-9) {
+        return false // 该轴方向分量≈0 且直线在该轴上越界 → 行不跨页
+      }
+      return true
+    }
+    if (!clampT(vx, ux, width / 2)) continue
+    if (!clampT(vy, uy, height / 2)) continue
+    if (tHi < tLo) continue // 行不跨页（文本过大，物理放不下）→ 跳过，避免页外多余文本
+    const uMid = (tLo + tHi) / 2
+    const uHalf = (tHi - tLo) / 2
+    // 列：以该行弦中点为中心向两侧铺，保证每行至少 1 个文本落在页面内（短文本 + 陡角也不丢行）。
+    const cMax = Math.ceil(uHalf / U)
+    for (let c = -cMax; c <= cMax; c++) {
+      const u = uMid + c * U
+      out.push({ x: u * ux + vPos * vx + width / 2, y: u * uy + vPos * vy + height / 2 })
     }
   }
   return out
